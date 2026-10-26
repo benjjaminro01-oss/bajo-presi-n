@@ -13,7 +13,7 @@
   var store = BP.createStore(P);
   var cfg = BP.DEFAULT_CONFIG, want = {}, actual = {}, cola = Promise.resolve();
   var $ = function (id) { return document.getElementById(id); };
-  var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video") }, capaTrans = $("capa-trans");
+var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), marcador: $("capa-marcador") }, capaTrans = $("capa-trans");
 
   // ---------- lienzo 1920x1080 escalado al tamaño de la fuente de navegador
   function fit() { $("stage").style.transform = "scale(" + Math.min(innerWidth / 1920, innerHeight / 1080) + ")"; }

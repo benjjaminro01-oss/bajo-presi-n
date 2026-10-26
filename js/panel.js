@@ -543,14 +543,17 @@
     pill.classList.toggle("bad", !s.ok);
   });
 
-  store.onChange(function (tree) {
+
+store.onChange(function (tree) {
     if (tree && tree.config && tree.config.graficas) {
       cfg = tree.config;
     }
     renderEscaleta();
     renderEditor();
     renderBotonera();
+    mostrarMarcador();
   });
+
 
   cambiarVista("control");
   renderEscaleta();

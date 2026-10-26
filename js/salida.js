@@ -74,6 +74,7 @@ var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), ma
     layer.appendChild(v); this.el = v; this.onend = onend; this.corte = null;
    
 
+
 v.addEventListener("ended", function () {
   var esCortina = /^cortina_/.test(datos.medio || "");
 
@@ -81,20 +82,31 @@ v.addEventListener("ended", function () {
     if (self.finalizando) return;
     self.finalizando = true;
 
-    v.style.transition = "opacity 1s ease";
-    v.style.opacity = "0";
+    var animacion = v.animate(
+      [
+        { opacity: 1 },
+        { opacity: 0 }
+      ],
+      {
+        duration: 1000,
+        easing: "ease",
+        fill: "forwards"
+      }
+    );
 
-    setTimeout(function () {
+    animacion.onfinish = function () {
       if (self.onend) {
         self.onend();
       }
       self.out();
-    }, 1000);
+    };
   } else {
     if (self.onend) {
       self.onend();
     }
   }
+});
+
 });
 
 

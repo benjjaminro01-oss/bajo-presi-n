@@ -301,6 +301,7 @@
     if (nodo) nodo.scrollIntoView({ block: "nearest" });
   }
 
+  
   function cambiarVista(nombre) {
     vistaActual = nombre;
 
@@ -308,8 +309,9 @@
       b.classList.toggle("sel", b.dataset.v === nombre);
     });
 
-    $("v-control").hidden = nombre === "botonera";
+    $("v-control").hidden = nombre !== "control" && nombre !== "visual";
     $("v-botonera").hidden = nombre !== "botonera";
+    $("v-marcador").hidden = nombre !== "marcador";
 
     if (nombre === "visual") {
       $("monitores").hidden = false;
@@ -317,7 +319,12 @@
     } else {
       $("monitores").hidden = true;
     }
+
+    if (nombre === "marcador") {
+      mostrarMarcador();
+    }
   }
+
 
   function configurarMonitores() {
     var params = BP.params();

@@ -433,6 +433,103 @@
     aviso("La edición de distribución personalizada se implementará en otra etapa.", false);
   });
 
+  // ---------- MARCADOR EN VIVO
+  var marcadorEstado = $("marcadorEstado");
+  var marcadorListo = false;
+
+  function leerJugador(indice) {
+    var jugador = store.get("marcador/players/" + indice);
+    return jugador && typeof jugador === "object" ? jugador : null;
+  }
+
+  function mostrarMarcador() {
+    var jugadores1 = leerJugador(0);
+    var jugadores2 = leerJugador(1);
+    var marcador = store.get("marcador");
+
+    if (!marcador || !jugadores1 || !jugadores2) {
+      marcadorListo = false;
+      if (marcadorEstado) {
+        marcadorEstado.textContent = "Marcador sin inicializar";
+        marcadorEstado.classList.remove("ok");
+        marcadorEstado.classList.add("bad");
+      }
+      return;
+    }
+
+    marcadorListo = true;
+
+    $("nombreJugador1").value = jugadores1.name || "PARTICIPANTE 1";
+    $("nombreJugador2").value = jugadores2.name || "PARTICIPANTE 2";
+    $("puntosJugador1").textContent = Number(jugadores1.score) || 0;
+    $("puntosJugador2").textContent = Number(jugadores2.score) || 0;
+
+    if (marcadorEstado) {
+      marcadorEstado.textContent = "Sincronizado · " + store.sala;
+      marcadorEstado.classList.add("ok");
+      marcadorEstado.classList.remove("bad");
+    }
+  }
+
+  function cambiarPuntos(indice, cambio) {
+    if (!marcadorListo) {
+      aviso("El marcador aún no está inicializado en esta sala.", false);
+      return;
+    }
+
+    var jugador = leerJugador(indice);
+    if (!jugador) {
+      aviso("No se encontró al participante.", false);
+      return;
+    }
+
+    var puntosActuales = Number(jugador.score) || 0;
+    var nuevosPuntos = Math.max(0, puntosActuales + cambio);
+
+    store.set("marcador/players/" + indice + "/score", nuevosPuntos);
+  }
+
+  $("sumarJugador1").addEventListener("click", function () {
+    cambiarPuntos(0, 1);
+  });
+
+  $("restarJugador1").addEventListener("click", function () {
+    cambiarPuntos(0, -1);
+  });
+
+  $("sumarJugador2").addEventListener("click", function () {
+    cambiarPuntos(1, 1);
+  });
+
+  $("restarJugador2").addEventListener("click", function () {
+    cambiarPuntos(1, -1);
+  });
+
+  function guardarNombre(indice, campo) {
+    var nombre = campo.value.trim();
+    if (!nombre) {
+      aviso("Escribe un nombre para el participante.", false);
+      mostrarMarcador();
+      return;
+    }
+
+    if (!marcadorListo) {
+      aviso("El marcador aún no está inicializado en esta sala.", false);
+      mostrarMarcador();
+      return;
+    }
+
+    store.set("marcador/players/" + indice + "/name", nombre);
+  }
+
+  $("nombreJugador1").addEventListener("change", function () {
+    guardarNombre(0, this);
+  });
+
+  $("nombreJugador2").addEventListener("change", function () {
+    guardarNombre(1, this);
+  });
+
   store.onStatus(function (s) {
     pill.textContent = s.texto || (s.ok ? "en línea" : "sin conexión");
     pill.classList.toggle("ok", !!s.ok);

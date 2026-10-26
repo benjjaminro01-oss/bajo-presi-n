@@ -1,473 +1,63 @@
-
 <!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BAJO PRESIÓN · Control de gráficas</title>
-
-<style>
-:root {
-  --bg: #050a18;
-  --panel: #0b1530;
-  --panel2: #101e3e;
-  --line: #24365e;
-  --blue: #2589ff;
-  --red: #ed3548;
-  --text: #f4f6fc;
-  --muted: #8c9cbd;
-  --green: #17a66a;
-}
-
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  background:
-    radial-gradient(ellipse at top right, #142650 0, transparent 45%),
-    var(--bg);
-  color: var(--text);
-  font: 14px/1.4 -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, Arial, sans-serif;
-}
-
-button, input { font: inherit; }
-
-.topbar {
-  background: rgba(5,10,24,.96);
-  border-bottom: 1px solid var(--line);
-  padding: 17px 22px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
-  position: relative;
-}
-
-.topbar:before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--blue) 0 65%, var(--red) 65%);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.mark {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  background: var(--red);
-  font-size: 22px;
-  font-weight: 1000;
-  font-style: italic;
-  transform: skew(-7deg);
-}
-
-h1 {
-  margin: 0;
-  font-size: 19px;
-  line-height: 1.1;
-  font-weight: 950;
-  font-style: italic;
-  letter-spacing: .04em;
-}
-
-.brand small {
-  display: block;
-  color: var(--muted);
-  margin-top: 5px;
-  font-size: 10px;
-  letter-spacing: .19em;
-  font-weight: 700;
-}
-
-.badge {
-  border: 1px solid #29466f;
-  border-radius: 5px;
-  padding: 7px 10px;
-  color: #a9cfff;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .1em;
-  white-space: nowrap;
-}
-
-main {
-  max-width: 1200px;
-  margin: auto;
-  padding: 24px;
-}
-
-.intro {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 16px;
-  margin-bottom: 22px;
-}
-
-.eyebrow {
-  color: var(--blue);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .2em;
-  margin-bottom: 6px;
-}
-
-h2 {
-  margin: 0;
-  font-size: 25px;
-  font-weight: 900;
-  letter-spacing: -.03em;
-}
-
-.description {
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 7px;
-}
-
-.session {
-  color: var(--muted);
-  font-size: 11px;
-  text-align: right;
-  line-height: 1.8;
-  flex-shrink: 0;
-}
-
-.session strong { color: var(--text); }
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin: 26px 0 12px;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: .13em;
-}
-
-.section-title:before {
-  content: "";
-  height: 17px;
-  width: 4px;
-  background: var(--blue);
-}
-
-.section-title span {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0;
-}
-
-#lista {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 13px;
-}
-
-.g {
-  min-width: 0;
-  padding: 17px;
-  background: linear-gradient(145deg, #101d3c, #091329);
-  border: 1px solid var(--line);
-  border-left: 4px solid #304b79;
-  border-radius: 9px;
-  transition: border-color .15s, background .15s;
-}
-
-.g.on {
-  border-left-color: var(--red);
-  border-color: #633044;
-  background: linear-gradient(145deg, #21172e, #0b1328);
-}
-
-.g b {
-  display: block;
-  margin-bottom: 13px;
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: .035em;
-}
-
-.g input {
-  display: block;
-  width: 100%;
-  min-height: 46px;
-  padding: 11px 12px;
-  margin: 0 0 10px;
-  color: #fff;
-  background: #050b1b;
-  border: 1px solid #2b416b;
-  border-radius: 5px;
-  outline: none;
-  font-size: 15px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.g input:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px #2589ff25;
-}
-
-.g input::placeholder {
-  color: #63769d;
-  font-weight: 500;
-  text-transform: none;
-}
-
-.b {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 9px;
-}
-
-button {
-  min-height: 45px;
-  padding: 10px 12px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  color: white;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: .07em;
-  cursor: pointer;
-  transition: filter .15s, transform .1s;
-}
-
-button:hover { filter: brightness(1.15); }
-button:active { transform: scale(.98); }
-
-button.on {
-  background: var(--blue);
-  border-color: #56a5ff;
-}
-
-button.off {
-  background: #291323;
-  border-color: #6e2b40;
-  color: #ff9eaa;
-}
-
-.st {
-  min-height: 16px;
-  margin-top: 9px;
-  color: #ffbe65;
-  font-size: 11px;
-}
-
-.tools {
-  margin-top: 24px;
-  padding: 17px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #091329;
-}
-
-.tools-head {
-  font-size: 12px;
-  font-weight: 900;
-  margin-bottom: 5px;
-}
-
-.tools p {
-  color: var(--muted);
-  font-size: 12px;
-  margin: 0 0 13px;
-}
-
-#clr {
-  width: 100%;
-  background: #171f39;
-  border-color: #3a4567;
-  color: #d5def2;
-}
-
-#clr:hover {
-  background: #552032;
-  border-color: var(--red);
-}
-
-.footer {
-  padding: 20px 0 5px;
-  color: #657594;
-  font-size: 10px;
-  text-align: center;
-  letter-spacing: .08em;
-}
-
-@media (max-width: 680px) {
-  .topbar { padding: 15px; }
-  h1 { font-size: 16px; }
-  .badge { display: none; }
-  main { padding: 18px 13px; }
-  .intro { align-items: start; flex-direction: column; }
-  .session { text-align: left; }
-  h2 { font-size: 22px; }
-  #lista { grid-template-columns: 1fr; }
-}
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Bajo Presión · Panel de control</title>
+<link rel="stylesheet" href="css/panel.css?v=3">
 </head>
-
 <body>
-<header class="topbar">
-  <div class="brand">
-    <div class="mark">BP</div>
-    <div>
-      <h1>BAJO PRESIÓN</h1>
-      <small>CONTROL DE REALIZACIÓN</small>
-    </div>
+<header id="top">
+  <div class="brand">BAJO PRESIÓN <span>CG</span></div>
+  <nav id="tabs">
+    <button data-v="control" class="tab">Control</button>
+    <button data-v="visual" class="tab">Control + Visual</button>
+    <button data-v="botonera" class="tab">Botonera</button>
+  </nav>
+  <div class="right">
+    <button id="bPend" class="pill warn" hidden></button>
+    <span id="pill" class="pill">conectando…</span>
+    <button id="bClear" class="pill danger">Limpiar salida</button>
+    <button id="bGear" class="pill" aria-label="Menú">⚙</button>
   </div>
-  <div class="badge">SISTEMA DE GRÁFICAS</div>
 </header>
 
 <main>
-  <section class="intro">
-    <div>
-      <div class="eyebrow">OPERACIÓN EN VIVO / 01</div>
-      <h2>Panel de control</h2>
-      <div class="description">
-        Administra las gráficas que aparecen sobre la transmisión.
+  <section id="v-control" class="vista">
+    <div id="monitores" hidden>
+      <div class="mon"><div class="monh">VISTA PREVIA <small>(solo operador)</small></div><div class="monw" id="monP"></div></div>
+      <div class="mon al"><div class="monh">AL AIRE</div><div class="monw" id="monA"></div></div>
+    </div>
+    <div id="cuerpo">
+      <div id="esc">
+        <div class="escbar">
+          <button id="pPrev" class="btn">◀ Paso anterior <kbd>Re Pág</kbd></button>
+          <div id="pInfo"></div>
+          <button id="pNext" class="btn">Paso siguiente ▶ <kbd>Av Pág</kbd></button>
+        </div>
+        <div id="escList"></div>
       </div>
-    </div>
-    <div class="session">
-      SALA: <strong id="sala">—</strong><br>
-      MODO: <strong id="modo">—</strong>
+      <aside id="editor"></aside>
     </div>
   </section>
 
-  <div class="section-title">
-    GRÁFICAS DISPONIBLES
-    <span>MOSTRAR / OCULTAR</span>
-  </div>
-
-  <section id="lista"></section>
-
-  <section class="tools">
-    <div class="tools-head">CONTROL GENERAL DE SALIDA</div>
-    <p>
-      Oculta todas las gráficas activas de esta sala.
-      Utiliza esta opción con cuidado durante la transmisión.
-    </p>
-    <button id="clr">LIMPIAR TODAS LAS GRÁFICAS</button>
+  <section id="v-botonera" class="vista" hidden>
+    <div class="bbar">
+      <button id="bEdit" class="btn">✎ Editar botonera</button>
+      <button id="bAdd" class="btn" hidden>＋ Botón</button>
+      <span id="bHint" class="hint">Toca un botón para mostrar; toca otra vez para ocultar. Rojo = al aire.</span>
+    </div>
+    <div id="grid"></div>
   </section>
-
-  <div class="footer">
-    BAJO PRESIÓN · SISTEMA DE CONTROL GRÁFICO
-  </div>
 </main>
 
-<script src="js/core.js?v=1"></script>
-<script src="js/defaults.js?v=1"></script>
+<div id="sheetBg" hidden><div id="sheet" role="dialog"></div></div>
+<div id="toast" hidden></div>
 
-<script>
-(function () {
-  "use strict";
-
-  var P = BP.params();
-  var store = BP.createStore(P);
-  var cfg = BP.DEFAULT_CONFIG;
-  var $ = function (id) {
-    return document.getElementById(id);
-  };
-
-  $("sala").textContent = store.sala;
-  $("modo").textContent = store.mode;
-
-  var gs = Object.keys(cfg.graficas)
-    .map(function (k) {
-      return cfg.graficas[k];
-    })
-    .sort(function (a, b) {
-      return a.orden - b.orden;
-    });
-
-  var cards = {};
-
-  gs.forEach(function (g) {
-    var d = document.createElement("div");
-    d.className = "g";
-
-    var html = "<b>" + g.nombre + " · " + g.tecla + "</b>";
-
-    if (g.tipo === "gc_persona") {
-      html +=
-        '<input type="text" aria-label="Nombre de la gráfica" ' +
-        'placeholder="Escribe el nombre" value="' +
-        (/PENDIENTE_/.test(g.datos.nombre)
-          ? ""
-          : g.datos.nombre) +
-        '">';
-    }
-
-    html +=
-      '<div class="b">' +
-      '<button class="on">MOSTRAR</button>' +
-      '<button class="off">OCULTAR</button>' +
-      '</div><div class="st" aria-live="polite"></div>';
-
-    d.innerHTML = html;
-    $("lista").appendChild(d);
-    cards[g.id] = d;
-
-    d.querySelector(".on").addEventListener("click", function () {
-      var datos = BP.clone(g.datos);
-      var inp = d.querySelector("input");
-
-      if (inp) {
-        datos.nombre = inp.value.trim() || g.datos.nombre;
-      }
-
-      store.set("state/aire/" + g.capa, {
-        gid: g.id,
-        ts: Date.now(),
-        datos: datos
-      });
-    });
-
-    d.querySelector(".off").addEventListener("click", function () {
-      store.remove("state/aire/" + g.capa);
-    });
-  });
-
-  $("clr").addEventListener("click", function () {
-    if (confirm("¿Ocultar todas las gráficas de esta sala?")) {
-      store.remove("state/aire");
-    }
-  });
-
-  store.onChange(function (t) {
-    var air = BP.getPath(t, "state/aire") || {};
-    var est = BP.getPath(t, "state/estado") || {};
-
-    gs.forEach(function (g) {
-      var e = air[g.capa];
-      var on = !!(e && e.gid === g.id);
-
-      cards[g.id].className = "g" + (on ? " on" : "");
-
-      var s = est[g.capa];
-      var msg = "";
-
-      if (s && s.gid === g.id && s.ok === false) {
-        msg = "⚠ " + s.motivo;
-      }
-
-      cards[g.id].querySelector(".st").textContent = msg;
-    });
-  });
-})();
-</script>
+<script src="js/core.js?v=3"></script>
+<script src="js/defaults.js?v=3"></script>
+<script src="js/escaleta.js?v=3"></script>
+<script src="js/panel.js?v=3"></script>
 </body>
 </html>

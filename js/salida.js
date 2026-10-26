@@ -13,7 +13,7 @@
   var store = BP.createStore(P);
   var cfg = BP.DEFAULT_CONFIG, want = {}, actual = {}, cola = Promise.resolve();
   var $ = function (id) { return document.getElementById(id); };
-var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), marcador: $("capa-marcador"), cortina: $("capa-cortina") }, capaTrans = $("capa-trans");
+var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), marcador: $("capa-marcador") }, capaTrans = $("capa-trans");
   // ---------- marcador integrado dentro de la salida
   (function () {
     var frame = document.createElement("iframe");

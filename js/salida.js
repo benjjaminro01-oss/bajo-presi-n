@@ -73,10 +73,14 @@ var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), ma
     v.loop = !!datos.repetir; v.innerHTML = fuentesVideo(m);
     layer.appendChild(v); this.el = v; this.onend = onend; this.corte = null;
    
+
 v.addEventListener("ended", function () {
   var esCortina = /^cortina_/.test(datos.medio || "");
 
   if (esCortina) {
+    if (self.finalizando) return;
+    self.finalizando = true;
+
     v.style.transition = "opacity 1s ease";
     v.style.opacity = "0";
 
@@ -84,6 +88,7 @@ v.addEventListener("ended", function () {
       if (self.onend) {
         self.onend();
       }
+      self.out();
     }, 1000);
   } else {
     if (self.onend) {
@@ -91,6 +96,7 @@ v.addEventListener("ended", function () {
     }
   }
 });
+
 
     v.addEventListener("error", function () { console.warn("video no disponible", datos.medio); if (self.onend) { self.onend(); } }, true);
   }

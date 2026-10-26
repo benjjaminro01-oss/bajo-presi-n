@@ -72,7 +72,26 @@ var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), ma
     v.className = "video-el"; v.playsInline = true; v.preload = "auto"; v.muted = canal === "preview" || !!(opts && opts.mudo);
     v.loop = !!datos.repetir; v.innerHTML = fuentesVideo(m);
     layer.appendChild(v); this.el = v; this.onend = onend; this.corte = null;
-    v.addEventListener("ended", function () { if (self.onend) { self.onend(); } });
+   
+v.addEventListener("ended", function () {
+  var esCortina = /^cortina_/.test(datos.medio || "");
+
+  if (esCortina) {
+    v.style.transition = "opacity 1s ease";
+    v.style.opacity = "0";
+
+    setTimeout(function () {
+      if (self.onend) {
+        self.onend();
+      }
+    }, 1000);
+  } else {
+    if (self.onend) {
+      self.onend();
+    }
+  }
+});
+
     v.addEventListener("error", function () { console.warn("video no disponible", datos.medio); if (self.onend) { self.onend(); } }, true);
   }
   Video.prototype.in = function () {

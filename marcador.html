@@ -1,1 +1,121 @@
 
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAJO PRESIÓN · Marcador</title>
+<style>
+html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden}
+#stage{position:absolute;left:0;top:0;width:3840px;height:2160px;transform-origin:0 0}
+#bug{position:absolute;width:700px;height:190px}
+svg{overflow:visible;display:block}
+text{font-family:"Avenir Next","Helvetica Neue",Arial,sans-serif;font-weight:900;font-style:italic}
+.panel{transform-origin:0 0;transform:scaleX(0);opacity:0;transition:transform .5s cubic-bezier(.5,0,.75,0) .35s,opacity .01s linear .85s}
+.content{opacity:0;transform:translateX(-40px);transition:opacity .25s ease-in,transform .3s ease-in}
+.cap{transform-origin:600px 0;transform:scaleX(0);transition:transform .3s ease-in .1s}
+.gauge{transform-origin:0 0;transform:scaleX(0);transition:transform .3s}
+.on .panel{transform:scaleX(1);opacity:1;transition:transform .55s cubic-bezier(.16,.84,.24,1),opacity .01s}
+.on .content{opacity:1;transform:none;transition:opacity .35s ease-out .3s,transform .5s cubic-bezier(.16,.84,.24,1) .3s}
+.on .cap{transform:scaleX(1);transition:transform .35s cubic-bezier(.16,.84,.24,1) .6s}
+.on .gauge{transform:scaleX(1);transition:transform .6s cubic-bezier(.16,.84,.24,1) .25s}
+.score{transform-box:fill-box;transform-origin:100% 100%}
+.score.pop{animation:pop .6s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{0%{transform:scale(1)}25%{transform:scale(1.22)}55%{transform:scale(.97)}100%{transform:scale(1)}}
+.flash{opacity:0}
+.flash.go{animation:flash .7s ease-out}
+@keyframes flash{0%{opacity:.4}100%{opacity:0}}
+.delta{opacity:0}
+.delta.go{animation:delta 1.6s ease-out forwards}
+@keyframes delta{0%{opacity:0;transform:translateY(14px)}10%{opacity:1;transform:translateY(0)}62%{opacity:1}100%{opacity:0;transform:translateY(0)}}
+.bar{transition:opacity .35s}
+.dot.lead{animation:pulse 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+</style>
+</head>
+<body>
+<div id="stage"><div id="bug"></div></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/core.js?v=1"></script>
+<script>
+(function(){
+"use strict";
+var WP=600,BH=190,SK=45,ROWS=[47,143];
+var BLUE="#288CFF",ORA="#FF8C1E",RED="#DD1C16",SILVER="#EDEDF4",ICE="#BED7FF";
+var params=new URLSearchParams(location.hash.slice(1));
+var sala=params.get("sala")||"prueba-panel";
+var dbUrl=(params.get("db")||"https://bajo-presion-7e430-default-rtdb.firebaseio.com").replace(/\/+$/,"");
+var bug=document.getElementById("bug");
+var left=(new URLSearchParams(location.search).get("corner")||"").toLowerCase()==="tr"?3840-240-659:240;
+var q=new URLSearchParams(location.search);
+bug.style.left=(q.has("x")?Number(q.get("x")):left)+"px";
+bug.style.top=(q.has("y")?Number(q.get("y")):150)+"px";
+function fit(){document.getElementById("stage").style.transform="scale("+innerWidth/3840+")"}
+addEventListener("resize",fit);fit();
+function sx(y){return SK*(1-y/BH)}
+function pts(a){return a.map(function(p){return p[0].toFixed(2)+","+p[1].toFixed(2)}).join(" ")}
+var gy=BH-9,gxa=108+sx(gy),gxb=WP-22+sx(gy),gmid=gxa+(gxb-gxa)*.88;
+var h='<svg width="700" height="190" viewBox="0 0 700 190">';
+h+='<g class="panel"><polygon points="'+pts([[0,BH],[WP,BH],[WP+SK,0],[SK,0]])+'" fill="#0A143E" fill-opacity=".94" stroke="'+BLUE+'" stroke-width="3" stroke-opacity=".85"/></g>';
+h+='<g class="content"><g class="gauge"><line x1="'+gxa+'" y1="'+gy+'" x2="'+gmid+'" y2="'+gy+'" stroke="'+BLUE+'" stroke-width="4" stroke-dasharray="10 7"/><line x1="'+gmid+'" y1="'+gy+'" x2="'+gxb+'" y2="'+gy+'" stroke="'+RED+'" stroke-width="4" stroke-dasharray="10 7"/></g>';
+h+='<line x1="'+(108+sx(BH/2))+'" y1="'+(BH/2)+'" x2="'+(WP-20+sx(BH/2))+'" y2="'+(BH/2)+'" stroke="'+ICE+'" stroke-opacity=".22" stroke-width="2"/>';
+var wx=48+sx(BH/2),wy=BH/2;
+h+='<g transform="translate('+wx+' '+wy+')"><circle r="38" fill="#080E2C" stroke="'+BLUE+'" stroke-width="4"/><circle r="29" fill="none" stroke="'+ICE+'" stroke-opacity=".55" stroke-width="8" stroke-dasharray="2 3.06"/><rect x="-10" y="-47.5" width="20" height="9" rx="3" fill="#141C50"/><g><animateTransform attributeName="transform" type="rotate" from="35" to="395" dur="30s" repeatCount="indefinite"/><line x1="0" y1="0" x2="0" y2="-26" stroke="'+ORA+'" stroke-width="3.5" stroke-linecap="round"/><circle r="4.5" fill="#fff"/></g><circle cx="0" cy="42" r="7" fill="'+RED+'"/></g>';
+for(var i=0;i<2;i++){
+var y=ROWS[i],s=sx(y),xr=WP-30+s;
+h+='<g id="row'+i+'"><polygon class="flash" fill="#fff" points="'+pts([[114+sx(y-38),y-38],[585+sx(y-38),y-38],[585+sx(y+38),y+38],[114+sx(y+38),y+38]])+'"/>';
+h+='<polygon class="bar" fill="#fff" points="'+pts([[102+sx(y+32),y+32],[108+sx(y+32),y+32],[108+sx(y-32),y-32],[102+sx(y-32),y-32]])+'"/>';
+h+='<g class="rowc"><circle class="dot" cx="'+(136+s)+'" cy="'+y+'" r="13" fill="#fff"/><text class="name" x="'+(170+s)+'" y="'+(y+16)+'" font-size="44" fill="'+SILVER+'"></text><text class="score" x="'+xr+'" y="'+(y+23)+'" font-size="64" text-anchor="end" fill="'+SILVER+'">0</text></g>';
+h+='<text class="delta" x="'+(xr-135)+'" y="'+(y+12)+'" font-size="34" text-anchor="end" fill="#FDB919"></text></g>';
+}
+h+='</g><g class="cap"><polygon points="'+pts([[WP,BH],[WP+14,BH],[WP+14+SK,0],[WP+SK,0]])+'" fill="'+ORA+'"/></g></svg>';
+bug.innerHTML=h;
+var rows=[0,1].map(function(i){
+var g=document.getElementById("row"+i);
+return {g:g,flash:g.querySelector(".flash"),bar:g.querySelector(".bar"),rowc:g.querySelector(".rowc"),dot:g.querySelector(".dot"),name:g.querySelector(".name"),score:g.querySelector(".score"),delta:g.querySelector(".delta"),shown:0,target:null,raf:0};
+});
+function restart(el,cls){el.classList.remove(cls);void el.getBoundingClientRect();el.classList.add(cls)}
+function fitName(t){t.removeAttribute("textLength");t.removeAttribute("lengthAdjust");if(t.getComputedTextLength()>230){t.setAttribute("textLength",230);t.setAttribute("lengthAdjust","spacingAndGlyphs")}}
+function countTo(r,from,to){
+cancelAnimationFrame(r.raf);var t0=performance.now(),D=550;
+(function step(now){var k=Math.min(1,(now-t0)/D),e=1-Math.pow(1-k,3);r.shown=Math.round(from+(to-from)*e);r.score.textContent=r.shown;if(k<1)r.raf=requestAnimationFrame(step)})(t0)
+}
+var first=true;
+function apply(st){
+if(!st||!Array.isArray(st.players)||st.players.length<2)return;
+var a=Number(st.players[0].score)||0,b=Number(st.players[1].score)||0;
+document.getElementById("stage").classList.toggle("on",!!st.visible);
+bug.classList.toggle("on",!!st.visible);
+st.players.slice(0,2).forEach(function(p,i){
+var r=rows[i],score=Number(p.score)||0,name=String(p.name||("PARTICIPANTE "+(i+1)));
+if(r.name.textContent!==name){r.name.textContent=name;fitName(r.name)}
+var color=i===0?BLUE:ORA;
+r.dot.setAttribute("fill",color);r.bar.setAttribute("fill",color);r.flash.setAttribute("fill",color);
+r.rowc.style.opacity=p.out?.35:1;
+var lead=i===0?a>b:b>a,tie=a===b;
+r.bar.style.opacity=(lead?1:(tie?.55:.2))*(p.out?.35:1);
+r.dot.classList.toggle("lead",lead&&score>0);
+if(r.target===null||first){r.target=score;r.shown=score;r.score.textContent=score}
+else if(score!==r.target){var d=score-r.target,from=r.shown;r.target=score;countTo(r,from,score);restart(r.score,"pop");restart(r.flash,"go");r.delta.textContent=(d>0?"+":"")+d;restart(r.delta,"go")}
+});
+first=false;
+}
+function listen(){
+var url=dbUrl+"/bp/"+encodeURIComponent(sala)+"/marcador.json";
+var es=new EventSource(url+"?"+Date.now());
+es.onmessage=function(e){try{apply(e.data?JSON.parse(e.data):null)}catch(err){}};
+es.onerror=function(){es.close();setTimeout(listen,2000)};
+}
+if(window.firebase&&window.firebase.database){
+try{
+if(!firebase.apps.length)firebase.initializeApp({databaseURL:dbUrl});
+var ref=firebase.database().ref("/bp/"+sala+"/marcador");
+ref.on("value",function(s){apply(s.val())},function(err){console.error("Firebase marcador:",err)});
+}catch(err){console.error("No se pudo iniciar Firebase:",err)}
+}else{console.error("No se cargó Firebase")}
+})();
+</script>
+</body>
+</html>
+

@@ -14,7 +14,30 @@
   var cfg = BP.DEFAULT_CONFIG, want = {}, actual = {}, cola = Promise.resolve();
   var $ = function (id) { return document.getElementById(id); };
 var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), marcador: $("capa-marcador") }, capaTrans = $("capa-trans");
+  // ---------- marcador integrado dentro de la salida
+  (function () {
+    var frame = document.createElement("iframe");
+    var url = location.origin +
+      location.pathname.replace(/salida\.html$/, "marcador.html");
 
+    frame.src = url +
+      "#sala=" + encodeURIComponent(P.sala || "prueba") +
+      "&db=" + encodeURIComponent(P.db || "");
+
+    frame.title = "Marcador BAJO PRESIÓN";
+    frame.setAttribute("aria-hidden", "true");
+
+    frame.style.position = "absolute";
+    frame.style.left = "0";
+    frame.style.top = "0";
+    frame.style.width = "100%";
+    frame.style.height = "100%";
+    frame.style.border = "0";
+    frame.style.background = "transparent";
+    frame.style.pointerEvents = "none";
+
+    capas.marcador.appendChild(frame);
+  })();
   // ---------- lienzo 1920x1080 escalado al tamaño de la fuente de navegador
   function fit() { $("stage").style.transform = "scale(" + Math.min(innerWidth / 1920, innerHeight / 1080) + ")"; }
   addEventListener("resize", fit); fit();

@@ -91,20 +91,20 @@ v.addEventListener("ended", function () {
   Video.prototype.out = function () { var v = this.el; try { v.pause(); } catch (e) {} if (v.parentNode) { v.parentNode.removeChild(v); } return Promise.resolve(); };
 
   // ---------- fábrica por tipo
-  function crear(g, datos, capa, e) {
-    if (g.tipo === "gc_persona") { var gc = new BP.GCPersona(capas.gc); gc.render(datos); return gc; }
-    if (g.tipo === "logo") { return new Logo(capas.logo, datos); }
-    if (g.tipo === "video") {
-      var esCortina = /^cortina_/.test(datos.medio || "");
-      var capaVideo = esCortina ? capas.cortina : capas.video;
-      return new Video(capaVideo, datos, function () {
-   // al terminar: se limpia la capa y el estado (solo en AIRE)
-        var cur = actual[capa];
-        if (cur && cur.ts === e.ts && !datos.repetir) {
-          if (canal === "aire") { var s = store.get("state/aire/" + capa); if (s && s.ts === e.ts) { store.remove("state/aire/" + capa); } }
+if (g.tipo === "video") {
+  return new Video(capas.video, datos, function () {
+    // al terminar: se limpia la capa y el estado (solo en AIRE)
+    var cur = actual[capa];
+    if (cur && cur.ts === e.ts && !datos.repetir) {
+      if (canal === "aire") {
+        var s = store.get("state/aire/" + capa);
+        if (s && s.ts === e.ts) {
+          store.remove("state/aire/" + capa);
         }
-      });
+      }
     }
+  });
+}
     return null;
   }
 

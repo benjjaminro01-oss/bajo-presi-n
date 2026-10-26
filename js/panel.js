@@ -556,7 +556,6 @@ store.onChange(function (tree) {
     renderEscaleta();
     renderEditor();
     renderBotonera();
-    mostrarMarcador();
   });
 
 

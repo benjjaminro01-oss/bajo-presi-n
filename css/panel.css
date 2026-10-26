@@ -69,3 +69,132 @@ main { padding:10px 12px 40px; }
 
 @media (max-width:1000px) { #cuerpo { grid-template-columns:1fr; } #editor { position:static; } #monitores { grid-template-columns:1fr; } #escList { max-height:60vh; } .escbar { top:0; position:static; } }
 @media (max-width:640px) { .paso { grid-template-columns:1fr; } #tabs .tab { padding:0 10px; font-size:13px; } }
+
+/* BAJO PRESIÓN · controles del marcador */
+#marcadorPanel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.marcadorCabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.marcadorCabecera h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: .08em;
+}
+
+.marcadorCabecera p {
+  margin: 5px 0 0;
+  color: var(--mut);
+  font-size: 13px;
+}
+
+.marcadorParticipantes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.marcadorJugador {
+  min-width: 0;
+  padding: 16px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #080f30;
+  text-align: center;
+}
+
+.marcadorJugador.azul {
+  border-color: var(--blue);
+}
+
+.marcadorJugador.naranja {
+  border-color: var(--ora);
+}
+
+.marcadorJugador label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.marcadorJugador.azul label {
+  color: var(--blue);
+}
+
+.marcadorJugador.naranja label {
+  color: var(--ora);
+}
+
+.marcadorJugador input {
+  text-align: center;
+}
+
+.marcadorPuntos {
+  margin: 12px 0;
+  font-size: clamp(48px, 8vw, 88px);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.marcadorJugador.azul .marcadorPuntos {
+  color: var(--blue);
+}
+
+.marcadorJugador.naranja .marcadorPuntos {
+  color: var(--ora);
+}
+
+.marcadorAcciones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.marcadorAcciones button {
+  min-height: 58px;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.marcadorJugador.azul .marcadorAcciones button {
+  background: #1257a4;
+}
+
+.marcadorJugador.naranja .marcadorAcciones button {
+  background: #994b08;
+}
+
+#marcadorPanel > .hint {
+  display: block;
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .marcadorParticipantes {
+    grid-template-columns: 1fr;
+  }
+
+  #marcadorPanel {
+    padding: 10px;
+  }
+
+  .marcadorJugador {
+    padding: 12px;
+  }
+}

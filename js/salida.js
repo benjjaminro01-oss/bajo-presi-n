@@ -76,37 +76,9 @@ var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), ma
 
 
 v.addEventListener("ended", function () {
-  var esCortina = /^cortina_/.test(datos.medio || "");
-
-  if (esCortina) {
-    if (self.finalizando) return;
-    self.finalizando = true;
-
-    var animacion = v.animate(
-      [
-        { opacity: 1 },
-        { opacity: 0 }
-      ],
-      {
-        duration: 1000,
-        easing: "ease",
-        fill: "forwards"
-      }
-    );
-
-    animacion.onfinish = function () {
-      if (self.onend) {
-        self.onend();
-      }
-      self.out();
-    };
-  } else {
-    if (self.onend) {
-      self.onend();
-    }
+  if (self.onend) {
+    self.onend();
   }
-});
-
 });
 
 

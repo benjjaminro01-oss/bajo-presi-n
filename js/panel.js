@@ -549,7 +549,7 @@
   renderEscaleta();
   renderEditor();
   renderBotonera();
-
+    mostrarMarcador();
   window.BP.panel = {
     store: store,
     publicar: publicar,

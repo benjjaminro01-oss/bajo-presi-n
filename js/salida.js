@@ -105,7 +105,9 @@ v.addEventListener("ended", function () {
     if (g.tipo === "gc_persona") { var gc = new BP.GCPersona(capas.gc); gc.render(datos); return gc; }
     if (g.tipo === "logo") { return new Logo(capas.logo, datos); }
     if (g.tipo === "video") {
-      return new Video(capas.video, datos, function () {         // al terminar: se limpia la capa y el estado (solo en AIRE)
+   var capaVideo = /^cortina_/.test(datos.medio || "") ? capaTrans : capas.video;
+return new Video(capaVideo, datos, function () {     
+   // al terminar: se limpia la capa y el estado (solo en AIRE)
         var cur = actual[capa];
         if (cur && cur.ts === e.ts && !datos.repetir) {
           if (canal === "aire") { var s = store.get("state/aire/" + capa); if (s && s.ts === e.ts) { store.remove("state/aire/" + capa); } }

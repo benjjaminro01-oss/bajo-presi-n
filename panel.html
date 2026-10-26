@@ -49,6 +49,42 @@
       <span id="bHint" class="hint">Toca un botón para mostrar; toca otra vez para ocultar. Rojo = al aire.</span>
     </div>
     <div id="grid"></div>
+   </section>
+
+  <section id="v-marcador" class="vista" hidden>
+    <div id="marcadorPanel">
+      <div class="marcadorCabecera">
+        <div>
+          <h2>MARCADOR EN VIVO</h2>
+          <p>Control de puntos · BAJO PRESIÓN</p>
+        </div>
+        <span id="marcadorEstado" class="pill">Conectando…</span>
+      </div>
+
+      <div class="marcadorParticipantes">
+        <article class="marcadorJugador azul">
+          <label for="nombreJugador1">PARTICIPANTE 1</label>
+          <input id="nombreJugador1" type="text" value="PARTICIPANTE 1" maxlength="40">
+          <div id="puntosJugador1" class="marcadorPuntos">0</div>
+          <div class="marcadorAcciones">
+            <button id="restarJugador1" type="button">−1</button>
+            <button id="sumarJugador1" type="button">+1</button>
+          </div>
+        </article>
+
+        <article class="marcadorJugador naranja">
+          <label for="nombreJugador2">PARTICIPANTE 2</label>
+          <input id="nombreJugador2" type="text" value="PARTICIPANTE 2" maxlength="40">
+          <div id="puntosJugador2" class="marcadorPuntos">0</div>
+          <div class="marcadorAcciones">
+            <button id="restarJugador2" type="button">−1</button>
+            <button id="sumarJugador2" type="button">+1</button>
+          </div>
+        </article>
+      </div>
+
+      <p class="hint">Los cambios se sincronizarán con el marcador conectado a la misma sala de Firebase.</p>
+    </div>
   </section>
 </main>
 

@@ -545,6 +545,11 @@
 
 
 store.onChange(function (tree) {
+    mostrarMarcador();
+
+    if (tree && tree.config && tree.config.graficas) {
+      cfg = tree.config;
+    }
     if (tree && tree.config && tree.config.graficas) {
       cfg = tree.config;
     }

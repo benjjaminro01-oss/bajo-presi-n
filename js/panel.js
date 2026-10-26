@@ -496,20 +496,29 @@
     store.set("marcador/players/" + indice + "/score", nuevosPuntos);
   }
 
+  
   $("sumarJugador1").addEventListener("click", function () {
-    cambiarPuntos(0, 1);
+    cambiarPuntos(0, 5);
   });
 
   $("restarJugador1").addEventListener("click", function () {
-    cambiarPuntos(0, -1);
+    cambiarPuntos(0, -5);
+  });
+
+  $("sumar10Jugador1").addEventListener("click", function () {
+    cambiarPuntos(0, 10);
   });
 
   $("sumarJugador2").addEventListener("click", function () {
-    cambiarPuntos(1, 1);
+    cambiarPuntos(1, 5);
   });
 
   $("restarJugador2").addEventListener("click", function () {
-    cambiarPuntos(1, -1);
+    cambiarPuntos(1, -5);
+  });
+
+  $("sumar10Jugador2").addEventListener("click", function () {
+    cambiarPuntos(1, 10);
   });
 
   function guardarNombre(indice, campo) {

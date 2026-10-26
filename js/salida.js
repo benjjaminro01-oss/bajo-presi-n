@@ -80,8 +80,6 @@ v.addEventListener("ended", function () {
     self.onend();
   }
 });
-
-
     v.addEventListener("error", function () { console.warn("video no disponible", datos.medio); if (self.onend) { self.onend(); } }, true);
   }
   Video.prototype.in = function () {

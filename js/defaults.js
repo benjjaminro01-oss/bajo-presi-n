@@ -3,6 +3,7 @@
 (function () {
   "use strict";
   var BP = window.BP = window.BP || {};
+  BP.DEFAULT_DB = "https://bajo-presion-7e430-default-rtdb.firebaseio.com";   // Firebase Realtime Database del proyecto (no es un secreto)
 
   var AZUL = "#288CFF", CIAN = "#50C3FF", NARANJA = "#FF8C1E", NAVY = "#06112B", BLANCO = "#FFFFFF";
 
@@ -24,13 +25,14 @@
       gc_conductor:      gcPersona("gc_conductor", 1, "GC conductor", "F13", "CONDUCTOR", "PENDIENTE_NOMBRE_CONDUCTOR", AZUL, BLANCO),
       gc_participante1:  gcPersona("gc_participante1", 2, "GC participante 1", "F14", "PARTICIPANTE 1", "PENDIENTE_NOMBRE_PARTICIPANTE_1", CIAN, NAVY),
       gc_participante2:  gcPersona("gc_participante2", 3, "GC participante 2", "F15", "PARTICIPANTE 2", "PENDIENTE_NOMBRE_PARTICIPANTE_2", CIAN, NAVY),
+      gc_participante3:  gcPersona("gc_participante3", 4, "GC participante 3", "F16", "PARTICIPANTE 3", "PENDIENTE_NOMBRE_PARTICIPANTE_3", CIAN, NAVY),
       cortina_programa: {
-        id: "cortina_programa", nombre: "Cortina programa", tipo: "video", capa: "video", orden: 4, tecla: "F18", boton: true,
+        id: "cortina_programa", nombre: "Cortina programa", tipo: "video", capa: "video", orden: 5, tecla: "F18", boton: true,
         datos: { medio: "cortina_programa", repetir: false },
         entra: { tipo: "directo" }, sale: { tipo: "directo" }
       },
       logo_esquina: {
-        id: "logo_esquina", nombre: "Logo esquina", tipo: "logo", capa: "logo", orden: 5, tecla: "F22", boton: true,
+        id: "logo_esquina", nombre: "Logo esquina", tipo: "logo", capa: "logo", orden: 12, tecla: "F22", boton: true,
         datos: { posicion: "tr", ancho: 210 },
         entra: { tipo: "directo" }, sale: { tipo: "directo" }
       }
@@ -45,4 +47,19 @@
     },
     transiciones: {}
   };
+  function cortinaJuego(n, tecla) {
+    return { id: "cortina_juego" + n, nombre: "Cortina Juego " + n, tipo: "video", capa: "video", orden: 5 + n, tecla: tecla, boton: true,
+      datos: { medio: "cortina_juego" + n, repetir: false }, entra: { tipo: "directo" }, sale: { tipo: "directo" } };
+  }
+  var G = BP.DEFAULT_CONFIG.graficas;
+  G.cortina_juego1 = cortinaJuego(1, "F17"); G.cortina_juego2 = cortinaJuego(2, "F19");
+  G.cortina_juego3 = cortinaJuego(3, "F21"); G.cortina_juego4 = cortinaJuego(4, "F23");
+  // Ficha: "Pase al noticiero" (Transición, F20): el texto/video no está confirmado -> queda PENDIENTE y no sale en pantalla
+  G.pase_noticiero = { id: "pase_noticiero", nombre: "Pase al noticiero", tipo: "video", capa: "video", orden: 11, tecla: "F20", boton: true,
+    datos: { medio: "PENDIENTE_VIDEO_PASE_AL_NOTICIERO", repetir: false }, entra: { tipo: "directo" }, sale: { tipo: "directo" } };
+
+  // botonera por defecto: un botón por gráfica marcada con "boton", en su orden
+  var slots = {}, ids = Object.keys(G).filter(function (k) { return G[k].boton; }).sort(function (a, b) { return G[a].orden - G[b].orden; });
+  ids.forEach(function (id, i) { slots["b" + (i + 1)] = { gid: id, orden: i + 1, tecla: G[id].tecla }; });
+  BP.DEFAULT_CONFIG.botonera = slots;
 })();

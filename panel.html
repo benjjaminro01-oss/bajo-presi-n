@@ -10,11 +10,10 @@
 <body>
 <header id="top">
   <div class="brand">BAJO PRESIÓN <span>CG</span></div>
-   <nav id="tabs">
+  <nav id="tabs">
     <button data-v="control" class="tab">Control</button>
     <button data-v="visual" class="tab">Control + Visual</button>
     <button data-v="botonera" class="tab">Botonera</button>
-    <button data-v="marcador" class="tab">Marcador</button>
   </nav>
   <div class="right">
     <button id="bPend" class="pill warn" hidden></button>
@@ -50,48 +49,6 @@
       <span id="bHint" class="hint">Toca un botón para mostrar; toca otra vez para ocultar. Rojo = al aire.</span>
     </div>
     <div id="grid"></div>
-   </section>
-
-  <section id="v-marcador" class="vista" hidden>
-    <div id="marcadorPanel">
-      <div class="marcadorCabecera">
-        <div>
-          <h2>MARCADOR EN VIVO</h2>
-          <p>Control de puntos · BAJO PRESIÓN</p>
-        </div>
-        <span id="marcadorEstado" class="pill">Conectando…</span>
-      </div>
-
-      <div class="marcadorParticipantes">
-        <article class="marcadorJugador azul">
-          <label for="nombreJugador1">PARTICIPANTE 1</label>
-          <input id="nombreJugador1" type="text" value="PARTICIPANTE 1" maxlength="40">
-          <div id="puntosJugador1" class="marcadorPuntos">0</div>
-         
-<div class="marcadorAcciones">
-  <button id="restarJugador1" type="button">−5</button>
-  <button id="sumarJugador1" type="button">+5</button>
-  <button id="sumar10Jugador1" type="button">+10</button>
-</div>
-
-        </article>
-
-        <article class="marcadorJugador naranja">
-          <label for="nombreJugador2">PARTICIPANTE 2</label>
-          <input id="nombreJugador2" type="text" value="PARTICIPANTE 2" maxlength="40">
-          <div id="puntosJugador2" class="marcadorPuntos">0</div>
-          
-<div class="marcadorAcciones">
-  <button id="restarJugador2" type="button">−5</button>
-  <button id="sumarJugador2" type="button">+5</button>
-  <button id="sumar10Jugador2" type="button">+10</button>
-</div>
-
-        </article>
-      </div>
-
-      <p class="hint">Los cambios se sincronizarán con el marcador conectado a la misma sala de Firebase.</p>
-    </div>
   </section>
 </main>
 
@@ -101,6 +58,6 @@
 <script src="js/core.js?v=3"></script>
 <script src="js/defaults.js?v=3"></script>
 <script src="js/escaleta.js?v=3"></script>
-<script src="js/panel.js?v=5"></script>
+<script src="js/panel.js?v=3"></script>
 </body>
 </html>

@@ -8,7 +8,7 @@
 (function () {
   "use strict";
   var BP = window.BP = window.BP || {};
-  BP.VERSION = "1";
+  BP.VERSION = "3";
 
   // ---------- parámetros: #sala=ABC&db=https://xxx.firebaseio.com&canal=preview  (también ?query)
   BP.params = function () {
@@ -56,13 +56,14 @@
       remove: function (p) { tree = setPath(tree, p, undefined); save(); if (ch) { ch.postMessage({ path: p, value: null }); } emit(); },
       onChange: function (cb) { cbs.push(cb); setTimeout(function () { cb(tree); }, 0); },
       onStatus: function (cb) { setTimeout(function () { cb({ ok: true, texto: "local" }); }, 0); },
+      onReady: function (cb) { setTimeout(cb, 0); },
       tree: function () { return tree; }
     };
   }
 
   // ---------- adaptador FIREBASE (Realtime Database, REST + SSE)
   function fbStore(db, sala) {
-    var base = db.replace(/\/+$/, "") + "/bp/" + encodeURIComponent(sala), tree = {}, cbs = [], scbs = [], es = null, retry = 0;
+    var base = db.replace(/\/+$/, "") + "/bp/" + encodeURIComponent(sala), tree = {}, cbs = [], scbs = [], rcbs = [], loaded = false, es = null, retry = 0;
     function emit() { cbs.forEach(function (fn) { try { fn(tree); } catch (e) { console.error(e); } }); }
     function status(ok, texto) { scbs.forEach(function (fn) { fn({ ok: ok, texto: texto }); }); }
     function norm(p) { return String(p || "").replace(/^\/+|\/+$/g, ""); }
@@ -72,6 +73,7 @@
       es.addEventListener("put", function (e) {
         var m = JSON.parse(e.data); var p = norm(m.path);
         tree = setPath(tree, p, m.data === null ? undefined : m.data); if (!p && !tree) { tree = {}; } emit();
+        if (!loaded) { loaded = true; rcbs.splice(0).forEach(function (fn) { fn(); }); }
       });
       es.addEventListener("patch", function (e) {
         var m = JSON.parse(e.data), p = norm(m.path);
@@ -93,6 +95,7 @@
       remove: function (p) { tree = setPath(tree, p, undefined); emit(); return send("DELETE", p); },
       onChange: function (cb) { cbs.push(cb); setTimeout(function () { cb(tree); }, 0); },
       onStatus: function (cb) { scbs.push(cb); },
+      onReady: function (cb) { if (loaded) { setTimeout(cb, 0); } else { rcbs.push(cb); } },
       tree: function () { return tree; }
     };
   }
@@ -102,6 +105,7 @@
     var sala = (params.sala || "local").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) || "local";
     var db = params.db || "";
     try { if (!db) { db = localStorage.getItem("bp:db") || ""; } } catch (e) {}
+    if (!db) { db = BP.DEFAULT_DB || ""; }
     if ((/^https:\/\/[A-Za-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)\/?$/.test(db) || /^http:\/\/localhost:\d+\/?$/.test(db)) && sala !== "local") { return fbStore(db, sala); }
     return localStore(sala);
   };

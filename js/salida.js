@@ -9,35 +9,12 @@
 (function () {
   "use strict";
   var BP = window.BP;
-  var P = BP.params(), canal = P.canal === "preview" ? "preview" : "aire";
+  var P = BP.params(), canal = P.canal === "preview" ? "preview" : "aire", escribe = !P.monitor;   // los monitores del panel solo miran
   var store = BP.createStore(P);
   var cfg = BP.DEFAULT_CONFIG, want = {}, actual = {}, cola = Promise.resolve();
   var $ = function (id) { return document.getElementById(id); };
-var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), marcador: $("capa-marcador") }, capaTrans = $("capa-trans");
-  // ---------- marcador integrado dentro de la salida
-  (function () {
-    var frame = document.createElement("iframe");
-    var url = location.origin +
-      location.pathname.replace(/salida\.html$/, "marcador.html");
+    var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video") }, capaTrans = $("capa-trans");
 
-    frame.src = url +
-      "#sala=" + encodeURIComponent(P.sala || "prueba") +
-      "&db=" + encodeURIComponent(P.db || "");
-
-    frame.title = "Marcador BAJO PRESIÓN";
-    frame.setAttribute("aria-hidden", "true");
-
-    frame.style.position = "absolute";
-    frame.style.left = "0";
-    frame.style.top = "0";
-    frame.style.width = "100%";
-    frame.style.height = "100%";
-    frame.style.border = "0";
-    frame.style.background = "transparent";
-    frame.style.pointerEvents = "none";
-
-    capas.marcador.appendChild(frame);
-  })();
   // ---------- lienzo 1920x1080 escalado al tamaño de la fuente de navegador
   function fit() { $("stage").style.transform = "scale(" + Math.min(innerWidth / 1920, innerHeight / 1080) + ")"; }
   addEventListener("resize", fit); fit();
@@ -69,17 +46,10 @@ var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video"), ma
   }
   function Video(layer, datos, onend, opts) {
     var m = (cfg.medios || {})[datos.medio] || {}, v = document.createElement("video"), self = this;
-    v.className = "video-el"; v.playsInline = true; v.preload = "auto"; v.muted = canal === "preview" || !!(opts && opts.mudo);
+    v.className = "video-el"; v.playsInline = true; v.preload = "auto"; v.muted = canal === "preview" || P.silencio === "1" || !!(opts && opts.mudo);
     v.loop = !!datos.repetir; v.innerHTML = fuentesVideo(m);
     layer.appendChild(v); this.el = v; this.onend = onend; this.corte = null;
-   
-
-
-v.addEventListener("ended", function () {
-  if (self.onend) {
-    self.onend();
-  }
-});
+    v.addEventListener("ended", function () { if (self.onend) { self.onend(); } });
     v.addEventListener("error", function () { console.warn("video no disponible", datos.medio); if (self.onend) { self.onend(); } }, true);
   }
   Video.prototype.in = function () {
@@ -88,37 +58,21 @@ v.addEventListener("ended", function () {
   };
   Video.prototype.out = function () { var v = this.el; try { v.pause(); } catch (e) {} if (v.parentNode) { v.parentNode.removeChild(v); } return Promise.resolve(); };
 
-    // ---------- fábrica por tipo
+  // ---------- fábrica por tipo
   function crear(g, datos, capa, e) {
-    if (g.tipo === "gc_persona") {
-      var gc = new BP.GCPersona(capas.gc);
-      gc.render(datos);
-      return gc;
-    }
-
-    if (g.tipo === "logo") {
-      return new Logo(capas.logo, datos);
-    }
-
+    if (g.tipo === "gc_persona") { var gc = new BP.GCPersona(capas.gc); gc.render(datos); return gc; }
+    if (g.tipo === "logo") { return new Logo(capas.logo, datos); }
     if (g.tipo === "video") {
-      return new Video(capas.video, datos, function () {
-        // Al terminar: se limpia la capa y el estado (solo en AIRE)
+      return new Video(capas.video, datos, function () {         // al terminar: se limpia la capa y el estado (solo en AIRE)
         var cur = actual[capa];
-
         if (cur && cur.ts === e.ts && !datos.repetir) {
-          if (canal === "aire") {
-            var s = store.get("state/aire/" + capa);
-
-            if (s && s.ts === e.ts) {
-              store.remove("state/aire/" + capa);
-            }
-          }
+          if (escribe) { var s = store.get("state/" + canal + "/" + capa); if (s && s.ts === e.ts) { store.remove("state/" + canal + "/" + capa); } }
         }
       });
     }
-
     return null;
   }
+
   // ---------- transiciones (video con punto de corte)
   function transicion(via, aplicar) {
     return new Promise(function (res) {
@@ -134,7 +88,7 @@ v.addEventListener("ended", function () {
 
   // ---------- estado de cada capa hacia el panel
   function informar(capa, e, ok, motivo) {
-    if (canal !== "aire") { return; }
+    if (canal !== "aire" || !escribe) { return; }
     store.set("state/estado/" + capa, { ts: e.ts, gid: e.gid, ok: ok, motivo: motivo || "" });
   }
 
@@ -145,7 +99,7 @@ v.addEventListener("ended", function () {
     var datos = e.datos || g.datos || {};
     if (BP.esPendiente(datos)) {                       // nunca se muestra un PENDIENTE_: se avisa al panel y se deja todo como estaba
       informar(capa, e, false, "PENDIENTE: faltan datos, no se muestra");
-      if (canal === "aire") {
+      if (canal === "aire" && escribe) {
         var prev0 = actual[capa];
         if (prev0) { want[capa] = prev0.ts; store.set("state/aire/" + capa, prev0.entry); } else { store.remove("state/aire/" + capa); }
       }

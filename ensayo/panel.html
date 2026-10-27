@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Bajo Presión · Panel de control</title>
+<link rel="stylesheet" href="css/panel.css?v=3">
+</head>
+<body>
+<header id="top">
+  <div class="brand">BAJO PRESIÓN <span>CG</span></div>
+  <nav id="tabs">
+    <button data-v="control" class="tab">Control</button>
+    <button data-v="visual" class="tab">Control + Visual</button>
+    <button data-v="botonera" class="tab">Botonera</button>
+  </nav>
+  <div class="right">
+    <button id="bPend" class="pill warn" hidden></button>
+    <span id="pill" class="pill">conectando…</span>
+    <button id="bClear" class="pill danger">Limpiar salida</button>
+    <button id="bGear" class="pill" aria-label="Menú">⚙</button>
+  </div>
+</header>
+
+<main>
+  <section id="v-control" class="vista">
+    <div id="monitores" hidden>
+      <div class="mon"><div class="monh">VISTA PREVIA <small>(solo operador)</small></div><div class="monw" id="monP"></div></div>
+      <div class="mon al"><div class="monh">AL AIRE</div><div class="monw" id="monA"></div></div>
+    </div>
+    <div id="cuerpo">
+      <div id="esc">
+        <div class="escbar">
+          <button id="pPrev" class="btn">◀ Paso anterior <kbd>Re Pág</kbd></button>
+          <div id="pInfo"></div>
+          <button id="pNext" class="btn">Paso siguiente ▶ <kbd>Av Pág</kbd></button>
+        </div>
+        <div id="escList"></div>
+      </div>
+      <aside id="editor"></aside>
+    </div>
+  </section>
+
+  <section id="v-botonera" class="vista" hidden>
+    <div class="bbar">
+      <button id="bEdit" class="btn">✎ Editar botonera</button>
+      <button id="bAdd" class="btn" hidden>＋ Botón</button>
+      <span id="bHint" class="hint">Toca un botón para mostrar; toca otra vez para ocultar. Rojo = al aire.</span>
+    </div>
+    <div id="grid"></div>
+  </section>
+</main>
+
+<div id="sheetBg" hidden><div id="sheet" role="dialog"></div></div>
+<div id="toast" hidden></div>
+
+<script src="js/core.js?v=3"></script>
+<script src="js/defaults.js?v=3"></script>
+<script src="js/escaleta.js?v=3"></script>
+<script src="js/panel.js?v=3"></script>
+</body>
+</html>

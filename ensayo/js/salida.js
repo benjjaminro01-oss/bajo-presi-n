@@ -89,7 +89,30 @@ function Video(layer, datos, onend, opts) {
     var v = this.el, p = v.play();
     if (p && p.catch) { p.catch(function () { v.muted = true; v.play().catch(function () {}); }); }
   };
-  Video.prototype.out = function () { var v = this.el; try { v.pause(); } catch (e) {} if (v.parentNode) { v.parentNode.removeChild(v); } return Promise.resolve(); };
+ 
+Video.prototype.out = function () {
+  var v = this.el;
+
+  // Detener el procesamiento WebGL del chroma.
+  if (this.canvas && this.canvas.stopChroma) {
+    this.canvas.stopChroma();
+  }
+
+  // Retirar el lienzo transparente.
+  if (this.canvas && this.canvas.parentNode) {
+    this.canvas.parentNode.removeChild(this.canvas);
+  }
+
+  // Detener y retirar el video original.
+  try { v.pause(); } catch (e) {}
+
+  if (v.parentNode) {
+    v.parentNode.removeChild(v);
+  }
+
+  return Promise.resolve();
+};
+
 
   // ---------- fábrica por tipo
   function crear(g, datos, capa, e) {

@@ -68,12 +68,15 @@ function Video(layer, datos, onend, opts) {
   if (m.chroma && typeof BP.chromaCanvas === "function") {
     this.canvas = BP.chromaCanvas(v, m.chroma);
 
-    if (this.canvas) {
-      layer.appendChild(this.canvas);
-    } else {
-      console.error("No se pudo iniciar WebGL para el chroma:", datos.medio);
-    }
-  }
+   if (this.canvas) {
+  layer.appendChild(this.canvas);
+
+  // El video sigue reproduciéndose, pero ya no se ve debajo del chroma.
+  v.style.opacity = "0";
+
+} else {
+  console.error("No se pudo iniciar WebGL para el chroma:", datos.medio);
+}
 
   v.addEventListener("ended", function () {
     if (self.onend) { self.onend(); }

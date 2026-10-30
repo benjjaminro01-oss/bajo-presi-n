@@ -44,14 +44,47 @@
     if (m.mp4) { h += '<source src="' + m.mp4 + '" type="video/mp4">'; }
     return h;
   }
-  function Video(layer, datos, onend, opts) {
-    var m = (cfg.medios || {})[datos.medio] || {}, v = document.createElement("video"), self = this;
-    v.className = "video-el"; v.playsInline = true; v.preload = "auto"; v.muted = canal === "preview" || P.silencio === "1" || !!(opts && opts.mudo);
-    v.loop = !!datos.repetir; v.innerHTML = fuentesVideo(m);
-    layer.appendChild(v); this.el = v; this.onend = onend; this.corte = null;
-    v.addEventListener("ended", function () { if (self.onend) { self.onend(); } });
-    v.addEventListener("error", function () { console.warn("video no disponible", datos.medio); if (self.onend) { self.onend(); } }, true);
+
+function Video(layer, datos, onend, opts) {
+  var m = (cfg.medios || {})[datos.medio] || {};
+  var v = document.createElement("video");
+  var self = this;
+
+  v.className = "video-el";
+  v.playsInline = true;
+  v.preload = "auto";
+  v.muted = canal === "preview" || P.silencio === "1" || !!(opts && opts.mudo);
+  v.loop = !!datos.repetir;
+  v.innerHTML = fuentesVideo(m);
+
+  layer.appendChild(v);
+
+  this.el = v;
+  this.onend = onend;
+  this.corte = null;
+  this.canvas = null;
+
+  // Aplicar chroma solamente a los medios que lo tengan configurado.
+  if (m.chroma && typeof BP.chromaCanvas === "function") {
+    this.canvas = BP.chromaCanvas(v, m.chroma);
+
+    if (this.canvas) {
+      layer.appendChild(this.canvas);
+    } else {
+      console.error("No se pudo iniciar WebGL para el chroma:", datos.medio);
+    }
   }
+
+  v.addEventListener("ended", function () {
+    if (self.onend) { self.onend(); }
+  });
+
+  v.addEventListener("error", function () {
+    console.warn("video no disponible", datos.medio);
+    if (self.onend) { self.onend(); }
+  }, true);
+}
+
   Video.prototype.in = function () {
     var v = this.el, p = v.play();
     if (p && p.catch) { p.catch(function () { v.muted = true; v.play().catch(function () {}); }); }

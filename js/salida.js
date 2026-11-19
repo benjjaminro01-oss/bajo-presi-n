@@ -14,6 +14,8 @@
   var cfg = BP.DEFAULT_CONFIG, want = {}, actual = {}, cola = Promise.resolve();
   var $ = function (id) { return document.getElementById(id); };
     var capas = { logo: $("capa-logo"), gc: $("capa-gc"), video: $("capa-video") }, capaTrans = $("capa-trans");
+  // capa de la huincha: se crea aquí (no hace falta tocar salida.html); su orden de apilado está en salida.css
+  capas.huincha = $("capa-huincha") || (function () { var c = document.createElement("div"); c.id = "capa-huincha"; c.className = "capa"; $("stage").insertBefore(c, capas.gc); return c; })();
 
   // ---------- lienzo 1920x1080 escalado al tamaño de la fuente de navegador
   function fit() { $("stage").style.transform = "scale(" + Math.min(innerWidth / 1920, innerHeight / 1080) + ")"; }
@@ -58,8 +60,67 @@
   };
   Video.prototype.out = function () { var v = this.el; try { v.pause(); } catch (e) {} if (v.parentNode) { v.parentNode.removeChild(v); } return Promise.resolve(); };
 
+  // ---------- gráfica: huincha "PREGUNTA Y RESPONDE"
+  // El texto se ajusta solo: 1 línea grande, hasta 2 líneas más chicas y, si aun así no cabe, una línea que se desplaza (con pausa inicial).
+  // Si cambia solo el texto (ACTUALIZAR) se hace un cambio suave sin sacar la barra.
+  var HU_SEP = "\u00a0\u00a0\u00a0\u25c6\u00a0\u00a0\u00a0", HU_EASE = "cubic-bezier(.16,.84,.24,1)";
+  function huTexto(t) { return String(t == null ? "" : t).replace(/\s+/g, " ").trim().slice(0, 400); }
+  function huAn(node, kf, o) { o = o || {}; return node.animate(kf, { duration: BP.dur(o.duration || 400), delay: BP.dur(o.delay || 0), easing: o.easing || HU_EASE, fill: "both" }); }
+  function Huincha(layer, datos) {
+    var d = document.createElement("div");
+    d.className = "hu";
+    d.innerHTML = '<div class="hu-in"><div class="hu-shape"><div class="hu-bg"></div><div class="hu-bgi"></div><div class="hu-cap"></div></div>' +
+      '<div class="hu-tab"><span></span></div><div class="hu-win"><div class="hu-txt"></div></div><div class="hu-gauge"></div></div>';
+    this.el = d; this.inn = d.firstChild; this.shape = d.querySelector(".hu-shape"); this.tab = d.querySelector(".hu-tab"); this.win = d.querySelector(".hu-win");
+    this.txt = d.querySelector(".hu-txt"); this.gauge = d.querySelector(".hu-gauge"); this.marq = null; this.fx = null; this.texto = "";
+    d.querySelector(".hu-tab span").textContent = String(datos.etiqueta || "PREGUNTA Y RESPONDE").toUpperCase();
+    layer.appendChild(d);
+    this.setTexto(huTexto(datos.texto));
+  }
+  Huincha.prototype.setTexto = function (t) {
+    var win = this.win, el = this.txt, sizes = [66, 60, 54, 50, 46, 42], i, ok = false, maxH = win.clientHeight, a, b, w;
+    if (this.marq) { this.marq.cancel(); this.marq = null; }
+    this.texto = t; win.classList.remove("scroll"); el.textContent = t;
+    for (i = 0; i < sizes.length && !ok; i++) { el.style.fontSize = sizes[i] + "px"; ok = el.offsetHeight <= maxH; }
+    if (ok) { return; }
+    win.classList.add("scroll"); el.style.fontSize = "56px"; el.textContent = "";
+    a = document.createElement("span"); b = document.createElement("span"); a.textContent = t + HU_SEP; b.textContent = t + HU_SEP; el.appendChild(a); el.appendChild(b);
+    w = a.offsetWidth;
+    this.marq = el.animate([{ transform: "translateX(0)" }, { transform: "translateX(-" + w + "px)" }], { duration: w / 130 * 1000, delay: 2500, iterations: Infinity, easing: "linear" });
+  };
+  Huincha.prototype.in = function () {
+    huAn(this.shape, [{ transform: "scaleX(0)", opacity: 0 }, { transform: "scaleX(1)", opacity: 1 }], { duration: 520 });
+    huAn(this.tab, [{ transform: "translateY(34px)", opacity: 0 }, { transform: "translateY(0)", opacity: 1 }], { duration: 420, delay: 380 });
+    this.fx = huAn(this.win, [{ transform: "translateX(-50px)", opacity: 0 }, { transform: "translateX(0)", opacity: 1 }], { duration: 520, delay: 330 });
+    huAn(this.gauge, [{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)" }], { duration: 650, delay: 450 });
+  };
+  Huincha.prototype.update = function (datos) {
+    var self = this, t = huTexto(datos.texto);
+    if (t === this.texto) { return Promise.resolve(); }
+    return new Promise(function (res) {
+      var prev = self.fx, o = huAn(self.win, [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(-14px)" }], { duration: 200, easing: "ease-in" });
+      self.fx = o;
+      o.onfinish = function () {
+        self.setTexto(t);
+        var n = huAn(self.win, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 380 });
+        self.fx = n; o.cancel(); if (prev) { prev.cancel(); }
+        res();
+      };
+    });
+  };
+  Huincha.prototype.out = function () {
+    var self = this;
+    return new Promise(function (res) {
+      var a = huAn(self.inn, [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(40px)" }], { duration: 420, easing: "cubic-bezier(.5,0,.75,0)" });
+      a.onfinish = function () { self.destroy(); res(); };
+    });
+  };
+  Huincha.prototype.destroy = function () { if (this.marq) { this.marq.cancel(); } if (this.el.parentNode) { this.el.parentNode.removeChild(this.el); } };
+  function huVacia(g, datos) { return g.tipo === "huincha" && !huTexto(datos && datos.texto); }   // una huincha sin texto nunca se dibuja
+
   // ---------- fábrica por tipo
   function crear(g, datos, capa, e) {
+    if (g.tipo === "huincha") { return huVacia(g, datos) ? null : new Huincha(capas.huincha, datos); }
     if (g.tipo === "gc_persona") { var gc = new BP.GCPersona(capas.gc); gc.render(datos); return gc; }
     if (g.tipo === "logo") { return new Logo(capas.logo, datos); }
     if (g.tipo === "video") {
@@ -94,7 +155,7 @@
 
   // ---------- mostrar / ocultar (siempre en cola: nunca se pisan las animaciones)
   function mostrar(capa, e) {
-    var g = (cfg.graficas || {})[e.gid];
+    var g = (cfg.graficas || {})[e.gid] || (BP.DEFAULT_CONFIG.graficas || {})[e.gid];   // si la sala aun no tiene la gráfica nueva, se usa la de defaults
     if (!g) { informar(capa, e, false, "gráfica inexistente"); return Promise.resolve(); }
     var datos = e.datos || g.datos || {};
     if (BP.esPendiente(datos)) {                       // nunca se muestra un PENDIENTE_: se avisa al panel y se deja todo como estaba
@@ -108,7 +169,12 @@
     informar(capa, e, true);
     var via = e.via && (cfg.transiciones || {})[e.via];
     function aplicar() {
-      var cur = actual[capa], prev = cur ? cur.inst.out() : Promise.resolve();
+      var cur = actual[capa], prev;
+      if (cur && cur.gid === e.gid && cur.inst.update && !huVacia(g, datos)) {     // misma gráfica con otro contenido: se actualiza sin sacarla
+        actual[capa] = { ts: e.ts, gid: e.gid, inst: cur.inst, entry: e };
+        return cur.inst.update(datos);
+      }
+      prev = cur ? cur.inst.out() : Promise.resolve();
       return prev.then(function () {
         var inst = crear(g, datos, capa, e);
         if (!inst) { return; }

@@ -1,0 +1,19 @@
+HUINCHA — PREGUNTA Y RESPONDE (Bajo Presión)
+
+Este zip contiene SOLO los 5 archivos modificados, con las mismas rutas del repositorio:
+  js/defaults.js  js/salida.js  js/panel.js
+  css/salida.css  css/panel.css
+
+CÓMO PROBAR (sin editar nada):
+1. En GitHub: "Add file > Upload files", arrastra las carpetas js y css de este zip
+   (reemplazan a los archivos del mismo nombre). Commit a main.
+2. Espera 1-2 minutos a que GitHub Pages publique.
+3. Abre el panel con tu enlace de siempre. En el computador haz recarga forzada
+   (Mac: Cmd+Shift+R). En iPad: cierra la pestaña y vuelve a abrir el enlace.
+   La tarjeta "HUINCHA — PREGUNTA Y RESPONDE" aparece arriba, bajo la barra superior.
+4. En OBS: clic derecho en la fuente de la salida > Propiedades >
+   "Refrescar caché del navegador actual".
+5. Escribe una pregunta y pulsa MOSTRAR.
+
+Si no ves la tarjeta o la huincha, es caché del navegador: repite el paso 3/4.
+Para volver atrás: restaura los 5 archivos anteriores desde el historial de GitHub.

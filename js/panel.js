@@ -343,6 +343,41 @@
   }
   $("grid").addEventListener("pointerup", finArrastre); $("grid").addEventListener("pointercancel", finArrastre);
 
+  // ---------- huincha "PREGUNTA Y RESPONDE" (tarjeta propia, visible en todas las vistas, también en la botonera del iPad)
+  // Reutiliza mostrar()/ocultar(): el texto se guarda en config/graficas/huincha_pregunta/datos/texto y, al aire, en state/aire/huincha.
+  var HU = "huincha_pregunta", huBuilt = false, huSucio = false;
+  function huTexto() { return $("huTxt").value.replace(/\s+/g, " ").trim(); }
+  function huGuardarBorrador() { if (seedOk && tree.config) { store.set("config/graficas/" + HU + "/datos/texto", huTexto()); huSucio = false; } }
+  function huAccion(a) {
+    if (!editable()) { return; }
+    var txt = huTexto();
+    if (a === "ocultar") { ocultar(HU); return; }
+    if (a === "limpiar") { $("huTxt").value = ""; huSucio = false; store.set("config/graficas/" + HU + "/datos/texto", ""); ocultar(HU); return; }
+    if (!txt) { aviso("Escribe la pregunta antes de mostrarla."); return; }
+    if (a === "actualizar" && !alAire(HU)) { aviso("La huincha no está al aire: usa MOSTRAR."); return; }
+    huGuardarBorrador(); mostrar(HU);
+  }
+  function construirHuincha() {
+    var top = $("top"); if (!top || huBuilt) { return; }
+    var c = document.createElement("section"); c.id = "huincha";
+    c.innerHTML = '<div class="huh"><b>HUINCHA — PREGUNTA Y RESPONDE</b><span class="hustate" id="huState">Fuera del aire</span></div>' +
+      '<textarea id="huTxt" rows="2" maxlength="400" placeholder="Escribe la pregunta…" autocomplete="off"></textarea>' +
+      '<div class="acc"><button class="b-show" data-h="mostrar">MOSTRAR</button><button class="b-hide" data-h="ocultar">OCULTAR</button><button class="b-upd" data-h="actualizar">ACTUALIZAR</button><button class="b-clr" data-h="limpiar">LIMPIAR</button></div>';
+    top.parentNode.insertBefore(c, top.nextSibling);
+    c.addEventListener("click", function (e) { var a = e.target.getAttribute("data-h"); if (a) { huAccion(a); } });
+    $("huTxt").addEventListener("input", function () { huSucio = true; pintar(); });
+    $("huTxt").addEventListener("change", huGuardarBorrador);
+    huBuilt = true;
+  }
+  function pintarHuincha() {
+    if (!huBuilt) { construirHuincha(); } if (!huBuilt) { return; }
+    var g = G(HU), t = $("huTxt"), s = $("huState"), e = st("aire", g.capa), on = !!(e && e.gid === HU), es = BP.getPath(tree, "state/estado/" + g.capa), txt = on ? "● AL AIRE" : "Fuera del aire", cls = "hustate" + (on ? " on" : "");
+    if (!huSucio && document.activeElement !== t) { var v = (g.datos && g.datos.texto) || ""; if (t.value !== v) { t.value = v; } }   // sigue el borrador de otros equipos (antes de comparar)
+    if (on && e.datos && e.datos.texto !== huTexto()) { txt += " · hay cambios sin actualizar"; cls += " chg"; }
+    if (es && es.gid === HU && es.ok === false) { txt = "⚠ " + es.motivo; cls += " err"; }
+    s.textContent = txt; s.className = cls;
+  }
+
   // ---------- pintado general
   function pintar() { cancelAnimationFrame(raf); raf = requestAnimationFrame(pintarTodo); }
   function pintarTodo() {
@@ -350,6 +385,7 @@
     pill.className = "pill " + (estadoCon.ok ? "ok" : "bad");
     var np = todosPendientes().length, bp = $("bPend"); bp.hidden = !np; bp.textContent = "⚠ " + np + " pendiente" + (np === 1 ? "" : "s");
     if (vista !== "botonera") { pintarEscaleta(); pintarEditor(); } else { pintarBotonera(); }
+    pintarHuincha();
   }
 
   store.onStatus(function (s) { estadoCon = s; pintar(); });

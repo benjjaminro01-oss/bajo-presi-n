@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Reglas de Firebase Storage para BAJO PRESIÓN CG.
+// El sistema no usa Firebase Auth: igual que la Realtime Database (bp/{sala}), el acceso se basa en conocer el código de sala del enlace.
+// Estas reglas limitan QUÉ se puede subir (ruta, tipo y tamaño) y no permiten sobrescribir archivos existentes.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /graficas/{sala}/{identificador}/{archivo} {
+      allow read: if true;                                  // OBS y el panel reproducen por URL de descarga
+      allow create: if sala.matches('[A-Za-z0-9_-]{1,40}')
+                    && request.resource.size > 0
+                    && request.resource.size <= 100 * 1024 * 1024                                   // 100 MB
+                    && request.resource.contentType.matches('video/(mp4|webm)|image/(png|webp|jpeg)');
+      allow delete: if true;                                // "Quitar" borra el archivo (el panel antes verifica que nadie más lo use)
+      // sin "update": un archivo ya subido no se puede sobrescribir
+    }
+    // cualquier otra ruta del bucket queda cerrada
+  }
+}

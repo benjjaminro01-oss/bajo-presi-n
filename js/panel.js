@@ -380,32 +380,61 @@
   }
 
   // ---------- MEDIOS: adjuntar gráficas terminadas (video MP4/WebM o imagen PNG/WebP/JPG) y dejarlas como botones del control.
-  // Con token de GitHub (guardado solo en este equipo) el archivo se sube a la carpeta media/ del repositorio; sin token se registra
-  // y el archivo se sube a mano. El registro (config/medios + config/graficas + botonera) usa las estructuras que ya existen.
-  var mdBuilt = false, mdBusy = false, mdKey = "", MD_MAX = 60 * 1024 * 1024;
-  function ghCfg() {
-    var o = {}; try { o = JSON.parse(localStorage.getItem("bp:gh") || "{}"); } catch (e) { o = {}; }
-    return { token: o.token || "", repo: o.repo || "benjjaminro01-oss/bajo-presi-n", branch: o.branch || "main" };
-  }
+  // El archivo se sube a Firebase Storage (graficas/{sala}/{id}/{archivo}) con el SDK de Firebase; en la base de datos solo se guarda su
+  // referencia (URL de descarga, ruta, nombre y configuración) en config/medios, config/graficas y config/botonera (estructuras que ya existían).
+  // GitHub Pages queda únicamente para el código: aquí ya no se usa la API de GitHub ni tokens.
+  var mdBuilt = false, mdBusy = false, mdKey = "", MD_MAX = 100 * 1024 * 1024;
+  var FB_CFG = {                                                   // configuración PÚBLICA de la app web (no es un secreto); la seguridad la dan las reglas de Storage
+    apiKey: "AIzaSyDuvBHZHRHY0KMaPVwaOdliO8fc9f5e4wc", authDomain: "bajo-presion-7e430.firebaseapp.com", projectId: "bajo-presion-7e430",
+    storageBucket: "bajo-presion-7e430.firebasestorage.app", appId: "1:645121018866:web:40f67a4a67e754d78bf96b"
+  };
+  var MD_TIPOS = { mp4: "video/mp4", webm: "video/webm", png: "image/png", webp: "image/webp", jpg: "image/jpeg", jpeg: "image/jpeg" };
+  try { localStorage.removeItem("bp:gh"); } catch (e) {}           // limpieza: el token de GitHub de la versión anterior ya no se usa ni se conserva
   function slug(s) { return String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "grafica"; }
   function mdEstado(txt, cls) { var e = $("mdEst"); if (e) { e.textContent = txt; e.className = "state" + (cls ? " " + cls : ""); } }
-  function leerB64(file) {
-    return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(",")[1]); }; r.onerror = function () { rej(new Error("No se pudo leer el archivo")); }; r.readAsDataURL(file); });
+  function mdProg(pct) { var p = $("mdProg"); if (!p) { return; } if (pct == null) { p.hidden = true; p.value = 0; } else { p.hidden = false; p.value = pct; } }
+  function mb(n) { return (Math.round(n / 1048576 * 10) / 10).toLocaleString("es-CL"); }
+  function storage() {
+    if (!window.firebase || !firebase.storage) { throw new Error("No se cargó el SDK de Firebase Storage (revisa la conexión a internet y recarga el panel)"); }
+    if (!firebase.apps.length) { firebase.initializeApp(FB_CFG); }
+    return firebase.storage();
   }
-  function ghPut(path, b64, msg) {
-    var c = ghCfg(), url = "https://api.github.com/repos/" + c.repo + "/contents/" + path.split("/").map(encodeURIComponent).join("/"), h = { Authorization: "Bearer " + c.token, Accept: "application/vnd.github+json" };
-    return fetch(url + "?ref=" + encodeURIComponent(c.branch), { headers: h })
-      .then(function (r) { if (r.status === 200) { return r.json().then(function (j) { return j.sha; }); } if (r.status === 404) { return undefined; } throw new Error(r.status === 401 || r.status === 403 ? "GitHub rechazó el token (revisa permisos del repositorio)" : "GitHub respondió " + r.status); })
-      .then(function (sha) { var body = { message: msg, content: b64, branch: c.branch }; if (sha) { body.sha = sha; } return fetch(url, { method: "PUT", headers: h, body: JSON.stringify(body) }); })
-      .then(function (r) { if (!r.ok) { return r.json().then(function (j) { throw new Error((j && j.message) || ("GitHub respondió " + r.status)); }); } return r.json(); });
+  function subirStorage(file, path, ctype, onProg) {               // sube con progreso real y devuelve la URL de descarga
+    return new Promise(function (res, rej) {
+      var ref, task;
+      try { ref = storage().ref(path); task = ref.put(file, { contentType: ctype }); } catch (e) { rej(e); return; }
+      task.on("state_changed", function (s) { onProg(s.bytesTransferred, s.totalBytes); }, rej, function () { ref.getDownloadURL().then(res, rej); });
+    });
   }
-  function esperarPublicado(path, intentos) {                    // GitHub Pages tarda 1-2 min en publicar el archivo nuevo
-    return fetch(path + "?v=" + Date.now(), { method: "HEAD", cache: "no-store" }).then(function (r) { return r.ok; }, function () { return false; })
-      .then(function (ok) { if (ok || intentos <= 0) { return ok; } return new Promise(function (res) { setTimeout(res, 8000); }).then(function () { return esperarPublicado(path, intentos - 1); }); });
+  function borrarArchivo(path) {                                   // un archivo que ya no existe cuenta como borrado
+    return new Promise(function (res, rej) {
+      var ref; try { ref = storage().ref(path); } catch (e) { rej(e); return; }
+      ref.delete().then(res, function (e) { if (e && e.code === "storage/object-not-found") { res(); } else { rej(e); } });
+    });
   }
-  function registrarMedio(o) {                                    // o: { id, nombre, tipo, archivo, croma, repetir }
-    var path = "media/" + o.archivo, m = { id: o.id, nombre: o.nombre }, g, slotsL = slots(), max = 0, hay = false;
-    if (o.tipo === "video") { m[/\.webm$/i.test(o.archivo) ? "webm" : "mp4"] = path; } else { m.img = path; }
+  function msgError(e) {
+    var c = e && e.code || "";
+    if (c === "storage/unauthorized") { return "Firebase rechazó la operación (revisa las reglas de Storage)"; }
+    if (c === "storage/quota-exceeded") { return "Se superó la cuota de Firebase Storage"; }
+    if (c === "storage/retry-limit-exceeded" || c === "storage/network-request-failed") { return "Se cortó la conexión con Firebase Storage"; }
+    if (c === "storage/bucket-not-found" || c === "storage/project-not-found") { return "Firebase Storage no está activado en el proyecto"; }
+    return (e && e.message) || "error desconocido";
+  }
+  function refiere(o, val) {                                       // ¿algún valor del objeto es exactamente val?
+    var hay = false;
+    (function rec(x) { if (hay || x == null) { return; } if (typeof x === "string") { if (x === val) { hay = true; } return; } if (typeof x === "object") { Object.keys(x).forEach(function (k) { rec(x[k]); }); } })(o);
+    return hay;
+  }
+  function usosDelMedio(gid, mid, path) {                          // otras configuraciones que dependen de este medio / archivo
+    var gs = cfg().graficas || {}, ms = cfg().medios || {}, ts = cfg().transiciones || {}, out = [];
+    Object.keys(gs).forEach(function (id) { if (id !== gid && gs[id] && refiere(gs[id].datos, mid)) { out.push(gs[id].nombre || id); } });
+    Object.keys(ts).forEach(function (id) { if (refiere(ts[id], mid)) { out.push("transición " + id); } });
+    Object.keys(ms).forEach(function (id) { if (id !== mid && path && ms[id] && ms[id].path === path) { out.push(ms[id].nombre || id); } });
+    return out;
+  }
+  function registrarMedio(o) {                                    // o: { id, nombre, tipo, archivo, url, path, croma, repetir }
+    var m = { id: o.id, nombre: o.nombre, path: o.path, archivo: o.archivo }, g, slotsL = slots(), max = 0, hay = false;
+    if (o.tipo === "video") { m[/\.webm$/i.test(o.archivo) ? "webm" : "mp4"] = o.url; } else { m.img = o.url; }
     if (o.croma) { m.chroma = { color: "#34FE00", similitud: 0.32, suavidad: 0.08 }; }
     g = { id: o.id, nombre: o.nombre, tipo: o.tipo, capa: "video", orden: 100, tecla: "", boton: true, adjunta: true, archivo: o.archivo, datos: { medio: o.id, repetir: !!o.repetir }, entra: { tipo: "directo" }, sale: { tipo: "directo" } };
     store.set("config/medios/" + o.id, m); store.set("config/graficas/" + o.id, g);
@@ -414,68 +443,69 @@
   }
   function mdAdjuntar() {
     if (!editable() || mdBusy) { return; }
-    var f = $("mdFile").files[0], ext, tipo, base, nombre, o, c = ghCfg();
+    var f = $("mdFile").files[0], ext, tipo, base, nombre, o, previo, antes, t0 = Date.now();
     if (!f) { aviso("Elige primero el archivo terminado."); return; }
     ext = (f.name.split(".").pop() || "").toLowerCase();
-    tipo = ["mp4", "webm"].indexOf(ext) >= 0 ? "video" : (["png", "webp", "jpg", "jpeg"].indexOf(ext) >= 0 ? "imagen" : "");
+    tipo = [ "mp4", "webm" ].indexOf(ext) >= 0 ? "video" : ([ "png", "webp", "jpg", "jpeg" ].indexOf(ext) >= 0 ? "imagen" : "");
     if (!tipo) { aviso("Formato no compatible. Exporta a MP4 (H.264) o WebM; imágenes en PNG, WebP o JPG."); return; }
+    if (f.size > MD_MAX) { aviso("El archivo pesa " + mb(f.size) + " MB y el máximo es " + mb(MD_MAX) + " MB. Comprímelo antes de adjuntarlo."); return; }
+    if (f.size === 0) { aviso("El archivo está vacío."); return; }
+    ext = ext === "jpeg" ? "jpg" : ext;
     base = slug(f.name.replace(/\.[^.]+$/, "")); nombre = $("mdNom").value.trim() || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
-    o = { id: "adj_" + base, nombre: nombre, tipo: tipo, archivo: base + "." + (ext === "jpeg" ? "jpg" : ext), croma: $("mdFondo").value === "verde", repetir: tipo === "video" && $("mdRep").checked };
-    if (!c.token) {
-      registrarMedio(o); mdEstado("Registrada «" + nombre + "». Falta subir el archivo «" + o.archivo + "» a la carpeta media/ del repositorio (o conecta GitHub para subirlo desde aquí).", "err"); return;
-    }
-    if (f.size > MD_MAX) { aviso("El archivo pesa más de 60 MB: no se puede subir desde el panel. Comprímelo o súbelo a mano a media/."); return; }
-    mdBusy = true; mdEstado("Subiendo «" + o.archivo + "» a GitHub… (" + Math.round(f.size / 1048576 * 10) / 10 + " MB)");
-    leerB64(f).then(function (b64) { return ghPut("media/" + o.archivo, b64, "Adjuntar gráfica: " + nombre); })
-      .then(function () { registrarMedio(o); mdEstado("Subido. Esperando que GitHub Pages lo publique (1–2 min)…"); return esperarPublicado("media/" + o.archivo, 45); })
-      .then(function (ok) { mdBusy = false; mdEstado(ok ? "✔ «" + nombre + "» lista: está en la Botonera." : "Subida correcta, pero aún no se publica. Espera un momento y pruébala.", ok ? "" : "err"); $("mdFile").value = ""; $("mdNom").value = ""; })
-      .catch(function (e) { mdBusy = false; mdEstado("⚠ " + e.message, "err"); });
+    o = { id: "adj_" + base, nombre: nombre, tipo: tipo, archivo: base + "_" + t0.toString(36) + "." + ext, croma: $("mdFondo").value === "verde", repetir: tipo === "video" && $("mdRep").checked };
+    o.path = "graficas/" + store.sala + "/" + o.id + "/" + o.archivo;
+    previo = medios()[o.id]; antes = previo && previo.path;        // si se re-adjunta el mismo nombre, el archivo anterior se reemplaza
+    mdBusy = true; $("mdAdd").disabled = true; mdProg(0); mdEstado("Subiendo «" + nombre + "» a Firebase Storage… 0 % (0 de " + mb(f.size) + " MB)");
+    subirStorage(f, o.path, MD_TIPOS[ext], function (a, b) { var p = b ? Math.round(a / b * 100) : 0; mdProg(p); mdEstado("Subiendo «" + nombre + "» a Firebase Storage… " + p + " % (" + mb(a) + " de " + mb(b) + " MB)"); })
+      .then(function (url) {
+        o.url = url; registrarMedio(o);
+        if (antes && antes !== o.path && !usosDelMedio(o.id, o.id, antes).length) { borrarArchivo(antes).catch(function () {}); }   // sin archivos huérfanos
+        mdBusy = false; $("mdAdd").disabled = false; mdProg(null);
+        mdEstado("✔ «" + nombre + "» ya está disponible y quedó en la Botonera.");
+        $("mdFile").value = ""; $("mdNom").value = "";
+      })
+      .catch(function (e) { mdBusy = false; $("mdAdd").disabled = false; mdProg(null); mdEstado("⚠ No se pudo subir «" + nombre + "»: " + msgError(e), "err"); });
   }
   function mdQuitar(gid) {
     if (!editable()) { return; }
-    var g = G(gid); if (!g || !g.adjunta || !confirm("¿Quitar «" + g.nombre + "» del control? (el archivo queda en el repositorio)")) { return; }
-    if (alAire(gid)) { ocultar(gid); }
-    slots().forEach(function (s) { if (s.gid === gid) { store.remove("config/botonera/" + s.id); } });
-    store.remove("config/graficas/" + gid); store.remove("config/medios/" + gid);
+    var g = G(gid), mid, m, path, uso, borrar, txt, quitar;
+    if (!g || !g.adjunta) { return; }
+    mid = g.datos && g.datos.medio; m = medios()[mid] || {}; path = m.path || ""; uso = usosDelMedio(gid, mid, path); borrar = !!path && !uso.length;
+    txt = "¿Quitar «" + g.nombre + "» del control?";
+    if (!path) { txt += "\n(El archivo queda en la carpeta media/ del repositorio.)"; }
+    else if (borrar) { txt += "\nTambién se borrará su archivo de Firebase Storage."; }
+    else { txt += "\nEl archivo NO se borrará porque lo usa: " + uso.join(", ") + "."; }
+    if (!confirm(txt)) { return; }
+    quitar = function () {
+      if (alAire(gid)) { ocultar(gid); }
+      slots().forEach(function (s) { if (s.gid === gid) { store.remove("config/botonera/" + s.id); } });
+      store.remove("config/graficas/" + gid); if (!uso.length) { store.remove("config/medios/" + mid); }
+      mdEstado(borrar ? "«" + g.nombre + "» quitada y su archivo borrado de Storage." : "«" + g.nombre + "» quitada del control.");
+    };
+    if (!borrar) { quitar(); return; }
+    mdEstado("Borrando «" + g.nombre + "» de Storage…");
+    borrarArchivo(path).then(quitar, function (e) {
+      if (confirm("No se pudo borrar el archivo de Storage (" + msgError(e) + ").\n¿Quitar la gráfica del control igualmente? El archivo quedaría en Storage.")) { quitar(); } else { mdEstado("No se quitó «" + g.nombre + "».", "err"); }
+    });
   }
   function mdProbar(gid) {                                          // diagnostica el archivo en ESTE navegador (OBS usa el suyo)
-    var g = G(gid), m = g && medios()[g.datos.medio], path = m && (m.mp4 || m.webm || m.img), url, fin;
+    var g = G(gid), m = g && medios()[g.datos.medio], path = m && (m.mp4 || m.webm || m.img), url, fin, abs, bust;
     if (!path) { mdEstado("Esta gráfica no tiene archivo registrado.", "err"); return; }
+    abs = /^https?:\/\//i.test(path); bust = function () { return abs ? path : path + "?v=" + Date.now(); };
     url = new URL(path, location.href).href; mdEstado("Probando «" + g.nombre + "»…");
     fin = function (txt, bad) { mdEstado(txt, bad ? "err" : ""); };
-    fetch(path + "?v=" + Date.now(), { method: "HEAD", cache: "no-store" }).then(function (r) {
+    (abs ? Promise.resolve({ ok: true }) : fetch(path + "?v=" + Date.now(), { method: "HEAD", cache: "no-store" })).then(function (r) {
       if (!r.ok) { fin("⚠ No se encuentra «" + path + "» (error " + r.status + "). Abre " + url + " para comprobarlo. El archivo debe estar en la carpeta media/ con ese nombre exacto (minúsculas, sin tildes ni espacios); si lo subiste hace poco, GitHub Pages tarda 1–2 min.", true); return; }
       var done = false, el, tm, dim = function (w, h) { return (w === 1920 && h === 1080) ? "" : " ⚠ Mide " + w + "×" + h + " y la salida es 1920×1080: se estirará (exporta a 1920×1080)."; };
       if (g.tipo === "imagen") {
-        el = new Image(); el.onload = function () { fin("✔ La imagen carga bien." + dim(el.naturalWidth, el.naturalHeight)); }; el.onerror = function () { fin("⚠ El archivo existe pero no es una imagen válida.", true); }; el.src = path + "?v=" + Date.now(); return;
+        el = new Image(); el.onload = function () { fin("✔ La imagen carga bien." + dim(el.naturalWidth, el.naturalHeight)); }; el.onerror = function () { fin(abs ? "⚠ No se pudo cargar la imagen desde Firebase Storage (¿archivo borrado, sin conexión o reglas?)." : "⚠ El archivo existe pero no es una imagen válida.", true); }; el.src = bust(); return;
       }
       el = document.createElement("video"); el.preload = "metadata"; el.muted = true;
-      tm = setTimeout(function () { if (!done) { done = true; fin("⚠ El navegador no pudo leer el video en 20 s (¿códec no compatible o archivo corrupto?).", true); } }, 20000);
+      tm = setTimeout(function () { if (!done) { done = true; fin("⚠ El navegador no pudo leer el video en 20 s (¿códec no compatible, archivo corrupto o sin conexión?).", true); } }, 20000);
       el.onloadedmetadata = function () { if (done) { return; } done = true; clearTimeout(tm); fin("✔ El video se puede reproducir: " + Math.round(el.duration * 10) / 10 + " s, " + el.videoWidth + "×" + el.videoHeight + "." + dim(el.videoWidth, el.videoHeight)); };
-      el.onerror = function () { if (done) { return; } done = true; clearTimeout(tm); fin("⚠ El archivo existe pero este navegador no puede reproducirlo (códec no compatible o archivo dañado). Expórtalo de nuevo como MP4 H.264 de 8 bits 4:2:0 con audio AAC (o WebM).", true); };
-      el.src = path + "?v=" + Date.now();
+      el.onerror = function () { if (done) { return; } done = true; clearTimeout(tm); fin("⚠ No se pudo reproducir el video (códec no compatible, archivo dañado o ya no está en Storage). Expórtalo de nuevo como MP4 H.264 de 8 bits 4:2:0 con audio AAC (o WebM).", true); };
+      el.src = bust();
     }, function () { fin("⚠ Sin conexión: no se pudo comprobar el archivo.", true); });
-  }
-  function mdGithub() {
-    var c = ghCfg();
-    abrirSheet('<h3>Conexión con GitHub</h3><div class="hint">Permite subir archivos a la carpeta media/ desde este equipo. El token se guarda solo aquí (no se comparte con otros equipos). Usa un token «fine-grained» limitado a este repositorio con permiso <b>Contents: Read and write</b>.</div>' +
-      '<div class="f"><label>Token</label><input type="password" id="ghTok" autocomplete="off"></div><div class="f"><label>Repositorio (usuario/nombre)</label><input type="text" id="ghRepo"></div><div class="f"><label>Rama</label><input type="text" id="ghBr"></div>' +
-      '<div class="state" id="ghEst">' + (c.token ? "Token guardado en este equipo." : "Sin token: las gráficas se registran y el archivo se sube a mano.") + '</div>' +
-      '<div class="row"><button id="ghSave" style="background:#0d6b3a">Guardar y probar</button><button id="ghDel">Borrar token</button><button id="ghOk">Cerrar</button></div>',
-      function () {
-        $("ghTok").value = c.token; $("ghRepo").value = c.repo; $("ghBr").value = c.branch;
-        $("ghOk").onclick = cerrarSheet;
-        $("ghDel").onclick = function () { try { localStorage.removeItem("bp:gh"); } catch (e) {} $("ghTok").value = ""; $("ghEst").textContent = "Token borrado de este equipo."; };
-        $("ghSave").onclick = function () {
-          var o = { token: $("ghTok").value.trim(), repo: $("ghRepo").value.trim(), branch: $("ghBr").value.trim() || "main" };
-          try { localStorage.setItem("bp:gh", JSON.stringify(o)); } catch (e) {}
-          if (!o.token) { $("ghEst").textContent = "Guardado sin token."; return; }
-          $("ghEst").textContent = "Probando…";
-          fetch("https://api.github.com/repos/" + o.repo, { headers: { Authorization: "Bearer " + o.token, Accept: "application/vnd.github+json" } })
-            .then(function (r) { return r.json().then(function (j) { $("ghEst").textContent = r.ok ? (j.permissions && j.permissions.push === false ? "⚠ El token puede leer pero NO escribir en " + o.repo : "✔ Conectado a " + o.repo) : "⚠ " + (j.message || r.status); }); })
-            .catch(function () { $("ghEst").textContent = "⚠ Sin conexión con GitHub."; });
-        };
-      });
   }
   function construirMedios() {
     var ref = $("huincha") || $("top"); if (!ref || mdBuilt) { return; }
@@ -485,10 +515,11 @@
       '<div class="f"><label>Nombre en el control</label><input type="text" id="mdNom" placeholder="Ej.: Tótem Spark Energy" autocomplete="off"></div>' +
       '<div class="f"><label>Fondo del archivo</label><select id="mdFondo"><option value="">Normal (opaco o con transparencia propia)</option><option value="verde">Fondo verde croma #34FE00 → quitarlo</option></select></div>' +
       '<label class="chk"><input type="checkbox" id="mdRep"> Repetir en bucle (solo video)</label>' +
-      '<div class="acc"><button class="b-show" id="mdAdd">ADJUNTAR</button><button id="mdGh">Conexión GitHub</button></div>' +
-      '<div class="state" id="mdEst">Elige un archivo y pulsa ADJUNTAR. Queda como botón en la Botonera.</div><div id="mdList"></div></details>';
+      '<div class="acc"><button class="b-show" id="mdAdd">ADJUNTAR</button></div>' +
+      '<progress id="mdProg" max="100" value="0" hidden></progress>' +
+      '<div class="state" id="mdEst">Elige un archivo y pulsa ADJUNTAR. Se sube a Firebase Storage y queda como botón en la Botonera.</div><div id="mdList"></div></details>';
     ref.parentNode.insertBefore(c, ref.nextSibling);
-    $("mdAdd").addEventListener("click", mdAdjuntar); $("mdGh").addEventListener("click", mdGithub);
+    $("mdAdd").addEventListener("click", mdAdjuntar);
     $("mdFile").addEventListener("change", function () { var f = this.files[0]; if (f && !$("mdNom").value) { $("mdNom").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "); } });
     $("mdList").addEventListener("click", function (e) {
       var b = e.target.closest("[data-md]"); if (!b) { return; }
@@ -500,11 +531,11 @@
     if (!mdBuilt) { construirMedios(); } if (!mdBuilt) { return; }
     var ids = Object.keys(cfg().graficas || {}).filter(function (id) { return G(id) && G(id).adjunta; }), es = BP.getPath(tree, "state/estado/video") || {};
     function falla(id) { return es.gid === id && es.ok === false ? es.motivo : ""; }
-    var key = ids.map(function (id) { return id + (alAire(id) ? "*" : "") + G(id).nombre + falla(id); }).join("|");
+    var key = ids.map(function (id) { return id + (alAire(id) ? "*" : "") + G(id).nombre + (G(id).archivo || "") + falla(id); }).join("|");
     if (key === mdKey) { return; } mdKey = key;
     $("mdList").innerHTML = ids.length ? '<div class="hint" style="margin:10px 0 4px">Gráficas adjuntas (también están en la Botonera):</div>' + ids.map(function (id) {
       var g = G(id), on = alAire(id);
-      return '<div class="mdrow' + (on ? " on" : "") + '"><div><b>' + esc(g.nombre) + '</b><small>' + esc(g.tipo + " · media/" + (g.archivo || "")) + '</small>' + (falla(id) ? '<small class="mdw">⚠ ' + esc(falla(id)) + ' — pulsa Probar</small>' : "") + '</div><button data-md="alt" data-g="' + esc(id) + '">' + (on ? "OCULTAR" : "MOSTRAR") + '</button><button data-md="test" data-g="' + esc(id) + '">Probar</button><button data-md="del" data-g="' + esc(id) + '">Quitar</button></div>';
+      return '<div class="mdrow' + (on ? " on" : "") + '"><div><b>' + esc(g.nombre) + '</b><small>' + esc(g.tipo + " · " + ((medios()[g.datos.medio] || {}).path ? "Storage · " : "media/") + (g.archivo || "")) + '</small>' + (falla(id) ? '<small class="mdw">⚠ ' + esc(falla(id)) + ' — pulsa Probar</small>' : "") + '</div><button data-md="alt" data-g="' + esc(id) + '">' + (on ? "OCULTAR" : "MOSTRAR") + '</button><button data-md="test" data-g="' + esc(id) + '">Probar</button><button data-md="del" data-g="' + esc(id) + '">Quitar</button></div>';
     }).join("") : "";
   }
 

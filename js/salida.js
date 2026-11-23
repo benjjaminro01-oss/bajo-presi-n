@@ -91,7 +91,7 @@
     if (m.chroma) { v.style.filter = "url(#" + chromaFiltro(datos.medio, m.chroma) + ")"; }
     layer.appendChild(v); this.el = v; this.onend = onend; this.corte = null;
     v.addEventListener("ended", function () { if (self.onend) { self.onend(); } });
-    v.addEventListener("error", function () { console.warn("video no disponible", datos.medio); if (self.onend) { self.onend(); } }, true);
+    v.addEventListener("error", function () { console.warn("video no disponible", datos.medio); if (opts && opts.onerror) { opts.onerror(); } if (self.onend) { self.onend(); } }, true);
   }
   Video.prototype.in = function () {
     var v = this.el, p = v.play();
@@ -169,7 +169,7 @@
         if (cur && cur.ts === e.ts && !datos.repetir) {
           if (escribe) { var s = store.get("state/" + canal + "/" + capa); if (s && s.ts === e.ts) { store.remove("state/" + canal + "/" + capa); } }
         }
-      });
+      }, { onerror: function () { informar(capa, e, false, "No se pudo reproducir «" + datos.medio + "»: archivo no encontrado o códec no compatible"); } });
     }
     return null;
   }

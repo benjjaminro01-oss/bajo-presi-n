@@ -438,6 +438,24 @@
     slots().forEach(function (s) { if (s.gid === gid) { store.remove("config/botonera/" + s.id); } });
     store.remove("config/graficas/" + gid); store.remove("config/medios/" + gid);
   }
+  function mdProbar(gid) {                                          // diagnostica el archivo en ESTE navegador (OBS usa el suyo)
+    var g = G(gid), m = g && medios()[g.datos.medio], path = m && (m.mp4 || m.webm || m.img), url, fin;
+    if (!path) { mdEstado("Esta gráfica no tiene archivo registrado.", "err"); return; }
+    url = new URL(path, location.href).href; mdEstado("Probando «" + g.nombre + "»…");
+    fin = function (txt, bad) { mdEstado(txt, bad ? "err" : ""); };
+    fetch(path + "?v=" + Date.now(), { method: "HEAD", cache: "no-store" }).then(function (r) {
+      if (!r.ok) { fin("⚠ No se encuentra «" + path + "» (error " + r.status + "). Abre " + url + " para comprobarlo. El archivo debe estar en la carpeta media/ con ese nombre exacto (minúsculas, sin tildes ni espacios); si lo subiste hace poco, GitHub Pages tarda 1–2 min.", true); return; }
+      var done = false, el, tm, dim = function (w, h) { return (w === 1920 && h === 1080) ? "" : " ⚠ Mide " + w + "×" + h + " y la salida es 1920×1080: se estirará (exporta a 1920×1080)."; };
+      if (g.tipo === "imagen") {
+        el = new Image(); el.onload = function () { fin("✔ La imagen carga bien." + dim(el.naturalWidth, el.naturalHeight)); }; el.onerror = function () { fin("⚠ El archivo existe pero no es una imagen válida.", true); }; el.src = path + "?v=" + Date.now(); return;
+      }
+      el = document.createElement("video"); el.preload = "metadata"; el.muted = true;
+      tm = setTimeout(function () { if (!done) { done = true; fin("⚠ El navegador no pudo leer el video en 20 s (¿códec no compatible o archivo corrupto?).", true); } }, 20000);
+      el.onloadedmetadata = function () { if (done) { return; } done = true; clearTimeout(tm); fin("✔ El video se puede reproducir: " + Math.round(el.duration * 10) / 10 + " s, " + el.videoWidth + "×" + el.videoHeight + "." + dim(el.videoWidth, el.videoHeight)); };
+      el.onerror = function () { if (done) { return; } done = true; clearTimeout(tm); fin("⚠ El archivo existe pero este navegador no puede reproducirlo (códec no compatible o archivo dañado). Expórtalo de nuevo como MP4 H.264 de 8 bits 4:2:0 con audio AAC (o WebM).", true); };
+      el.src = path + "?v=" + Date.now();
+    }, function () { fin("⚠ Sin conexión: no se pudo comprobar el archivo.", true); });
+  }
   function mdGithub() {
     var c = ghCfg();
     abrirSheet('<h3>Conexión con GitHub</h3><div class="hint">Permite subir archivos a la carpeta media/ desde este equipo. El token se guarda solo aquí (no se comparte con otros equipos). Usa un token «fine-grained» limitado a este repositorio con permiso <b>Contents: Read and write</b>.</div>' +
@@ -474,17 +492,19 @@
     $("mdFile").addEventListener("change", function () { var f = this.files[0]; if (f && !$("mdNom").value) { $("mdNom").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "); } });
     $("mdList").addEventListener("click", function (e) {
       var b = e.target.closest("[data-md]"); if (!b) { return; }
-      if (b.dataset.md === "alt") { if (editable()) { sel = b.dataset.g; alternar(b.dataset.g); } } else { mdQuitar(b.dataset.g); }
+      if (b.dataset.md === "alt") { if (editable()) { sel = b.dataset.g; alternar(b.dataset.g); } } else if (b.dataset.md === "test") { mdProbar(b.dataset.g); } else { mdQuitar(b.dataset.g); }
     });
     mdBuilt = true;
   }
   function pintarMedios() {
     if (!mdBuilt) { construirMedios(); } if (!mdBuilt) { return; }
-    var ids = Object.keys(cfg().graficas || {}).filter(function (id) { return G(id) && G(id).adjunta; }), key = ids.map(function (id) { return id + (alAire(id) ? "*" : "") + G(id).nombre; }).join("|");
+    var ids = Object.keys(cfg().graficas || {}).filter(function (id) { return G(id) && G(id).adjunta; }), es = BP.getPath(tree, "state/estado/video") || {};
+    function falla(id) { return es.gid === id && es.ok === false ? es.motivo : ""; }
+    var key = ids.map(function (id) { return id + (alAire(id) ? "*" : "") + G(id).nombre + falla(id); }).join("|");
     if (key === mdKey) { return; } mdKey = key;
     $("mdList").innerHTML = ids.length ? '<div class="hint" style="margin:10px 0 4px">Gráficas adjuntas (también están en la Botonera):</div>' + ids.map(function (id) {
       var g = G(id), on = alAire(id);
-      return '<div class="mdrow' + (on ? " on" : "") + '"><div><b>' + esc(g.nombre) + '</b><small>' + esc(g.tipo + " · media/" + (g.archivo || "")) + '</small></div><button data-md="alt" data-g="' + esc(id) + '">' + (on ? "OCULTAR" : "MOSTRAR") + '</button><button data-md="del" data-g="' + esc(id) + '">Quitar</button></div>';
+      return '<div class="mdrow' + (on ? " on" : "") + '"><div><b>' + esc(g.nombre) + '</b><small>' + esc(g.tipo + " · media/" + (g.archivo || "")) + '</small>' + (falla(id) ? '<small class="mdw">⚠ ' + esc(falla(id)) + ' — pulsa Probar</small>' : "") + '</div><button data-md="alt" data-g="' + esc(id) + '">' + (on ? "OCULTAR" : "MOSTRAR") + '</button><button data-md="test" data-g="' + esc(id) + '">Probar</button><button data-md="del" data-g="' + esc(id) + '">Quitar</button></div>';
     }).join("") : "";
   }
 

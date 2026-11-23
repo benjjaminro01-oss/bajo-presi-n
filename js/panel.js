@@ -397,7 +397,8 @@
   function storage() {
     if (!window.firebase || !firebase.storage) { throw new Error("No se cargó el SDK de Firebase Storage (revisa la conexión a internet y recarga el panel)"); }
     if (!firebase.apps.length) { firebase.initializeApp(FB_CFG); }
-    return firebase.storage();
+    var sto = firebase.storage(); try { sto.setMaxUploadRetryTime(40000); sto.setMaxOperationRetryTime(20000); } catch (e) {}   // si Storage no responde, falla en ~40 s en vez de reintentar 10 min
+    return sto;
   }
   function subirStorage(file, path, ctype, onProg) {               // sube con progreso real y devuelve la URL de descarga
     return new Promise(function (res, rej) {
@@ -416,9 +417,10 @@
     var c = e && e.code || "";
     if (c === "storage/unauthorized") { return "Firebase rechazó la operación (revisa las reglas de Storage)"; }
     if (c === "storage/quota-exceeded") { return "Se superó la cuota de Firebase Storage"; }
-    if (c === "storage/retry-limit-exceeded" || c === "storage/network-request-failed") { return "Se cortó la conexión con Firebase Storage"; }
+    if (c === "storage/retry-limit-exceeded" || c === "storage/network-request-failed") { return "no hubo respuesta de Firebase Storage (¿Storage sin activar, reglas sin publicar, o un bloqueador de contenido/VPN bloquea firebasestorage.googleapis.com?)"; }
+    if (c === "storage/canceled") { return "subida cancelada"; }
     if (c === "storage/bucket-not-found" || c === "storage/project-not-found") { return "Firebase Storage no está activado en el proyecto"; }
-    return (e && e.message) || "error desconocido";
+    return ((e && e.code) ? e.code + ": " : "") + ((e && e.message) || "error desconocido");
   }
   function refiere(o, val) {                                       // ¿algún valor del objeto es exactamente val?
     var hay = false;
@@ -455,16 +457,17 @@
     o = { id: "adj_" + base, nombre: nombre, tipo: tipo, archivo: base + "_" + t0.toString(36) + "." + ext, croma: $("mdFondo").value === "verde", repetir: tipo === "video" && $("mdRep").checked };
     o.path = "graficas/" + store.sala + "/" + o.id + "/" + o.archivo;
     previo = medios()[o.id]; antes = previo && previo.path;        // si se re-adjunta el mismo nombre, el archivo anterior se reemplaza
+    var ultimo = Date.now(), vigia = setInterval(function () { if (Date.now() - ultimo > 15000) { mdEstado("⏳ Sin avance en 15 s: Firebase Storage no responde. Si no avanza, se cortará solo en unos segundos con el motivo. Revisa que Storage esté activado y sus reglas publicadas.", "err"); } }, 5000);
     mdBusy = true; $("mdAdd").disabled = true; mdProg(0); mdEstado("Subiendo «" + nombre + "» a Firebase Storage… 0 % (0 de " + mb(f.size) + " MB)");
-    subirStorage(f, o.path, MD_TIPOS[ext], function (a, b) { var p = b ? Math.round(a / b * 100) : 0; mdProg(p); mdEstado("Subiendo «" + nombre + "» a Firebase Storage… " + p + " % (" + mb(a) + " de " + mb(b) + " MB)"); })
+    subirStorage(f, o.path, MD_TIPOS[ext], function (a, b) { var p = b ? Math.round(a / b * 100) : 0; if (a > 0) { ultimo = Date.now(); } mdProg(p); mdEstado("Subiendo «" + nombre + "» a Firebase Storage… " + p + " % (" + mb(a) + " de " + mb(b) + " MB)"); })
       .then(function (url) {
-        o.url = url; registrarMedio(o);
+        clearInterval(vigia); o.url = url; registrarMedio(o);
         if (antes && antes !== o.path && !usosDelMedio(o.id, o.id, antes).length) { borrarArchivo(antes).catch(function () {}); }   // sin archivos huérfanos
         mdBusy = false; $("mdAdd").disabled = false; mdProg(null);
         mdEstado("✔ «" + nombre + "» ya está disponible y quedó en la Botonera.");
         $("mdFile").value = ""; $("mdNom").value = "";
       })
-      .catch(function (e) { mdBusy = false; $("mdAdd").disabled = false; mdProg(null); mdEstado("⚠ No se pudo subir «" + nombre + "»: " + msgError(e), "err"); });
+      .catch(function (e) { clearInterval(vigia); mdBusy = false; $("mdAdd").disabled = false; mdProg(null); mdEstado("⚠ No se pudo subir «" + nombre + "»: " + msgError(e), "err"); });
   }
   function mdQuitar(gid) {
     if (!editable()) { return; }

@@ -1,19 +1,62 @@
-HUINCHA — PREGUNTA Y RESPONDE (Bajo Presión)
+BAJO PRESION - Paquete acumulado: HUINCHA + MEDIOS (adjuntar graficas) - v4: ALMACENAMIENTO EN FIREBASE STORAGE
 
-Este zip contiene SOLO los 5 archivos modificados, con las mismas rutas del repositorio:
-  js/defaults.js  js/salida.js  js/panel.js
-  css/salida.css  css/panel.css
+CAMBIO DE ESTA VERSION
+Las graficas adjuntadas ya NO se suben a GitHub. Se suben a Firebase Storage (proyecto bajo-presion-7e430) y en la
+Realtime Database solo se guarda su referencia (URL de descarga, ruta, nombre y configuracion) en las mismas rutas de siempre:
+config/medios/{id}, config/graficas/{id} y config/botonera/{id}. GitHub Pages queda solo para el codigo. Ya no hay token ni
+carpeta media/ para archivos nuevos (el boton "Conexion GitHub" se elimino; el token que hubiera quedado guardado en un equipo se borra solo).
 
-CÓMO PROBAR (sin editar nada):
-1. En GitHub: "Add file > Upload files", arrastra las carpetas js y css de este zip
-   (reemplazan a los archivos del mismo nombre). Commit a main.
-2. Espera 1-2 minutos a que GitHub Pages publique.
-3. Abre el panel con tu enlace de siempre. En el computador haz recarga forzada
-   (Mac: Cmd+Shift+R). En iPad: cierra la pestaña y vuelve a abrir el enlace.
-   La tarjeta "HUINCHA — PREGUNTA Y RESPONDE" aparece arriba, bajo la barra superior.
-4. En OBS: clic derecho en la fuente de la salida > Propiedades >
-   "Refrescar caché del navegador actual".
-5. Escribe una pregunta y pulsa MOSTRAR.
+ARCHIVOS MODIFICADOS (mismas rutas del repositorio)
+  js/panel.js     (bloque MEDIOS: subida/borrado con Firebase Storage)
+  panel.html      (2 etiquetas <script> del SDK de Storage + version ?v=4 de panel.js y panel.css)
+  css/panel.css   (barra de progreso)
+  LEEME.txt
+NO se modifican: js/salida.js, salida.html, js/core.js, js/defaults.js, js/escaleta.js, js/gc.js, css/salida.css ni nada mas.
+Referencia (no se sube al sitio): firebase/storage.rules  -> se pega en Firebase Console.
 
-Si no ves la tarjeta o la huincha, es caché del navegador: repite el paso 3/4.
-Para volver atrás: restaura los 5 archivos anteriores desde el historial de GitHub.
+CONFIGURAR FIREBASE (una sola vez)
+1. Firebase Console > proyecto bajo-presion-7e430 > Storage (menu Compilacion). Si dice "Comenzar", pulsalo: elige modo de produccion
+   y una ubicacion. Ojo: Firebase puede exigir el plan Blaze (con pago por uso) para activar Storage; el uso normal de este sistema es minimo.
+   El bucket debe llamarse bajo-presion-7e430.firebasestorage.app (el mismo del firebaseConfig).
+2. Storage > pestana Reglas: reemplaza el contenido por el de firebase/storage.rules y pulsa Publicar.
+3. No hace falta cambiar las reglas de la Realtime Database ni crear otro proyecto.
+
+INSTALAR EN GITHUB
+1. GitHub > Add file > Upload files: arrastra panel.html y las carpetas js y css (conservan sus rutas). Commit a main. Espera 1-2 min.
+2. Panel: recarga forzada (Cmd+Shift+R). iPad: cierra la pestana y abre el enlace de nuevo.
+3. OBS: clic derecho en la fuente de la salida > Propiedades > "Refrescar cache del navegador actual".
+   (salida.js no cambio: OBS reproduce las URLs de Storage tal como ya reproducia las rutas anteriores.)
+
+USO (igual que antes)
+- Panel > "MEDIOS - ADJUNTAR GRAFICAS": elige el archivo (MP4 H.264, WebM, PNG, WebP o JPG), ponle nombre, marca "Fondo verde croma"
+  si el fondo es #34FE00, "Repetir en bucle" si es video que debe quedarse, y pulsa ADJUNTAR.
+- Se ve el progreso real de subida. Al terminar aparece la confirmacion y la grafica queda en la Botonera y en la lista de la seccion
+  (MOSTRAR / OCULTAR / Probar / Quitar). Maximo 100 MB por archivo (recomendado: menos de 30 MB para que cargue rapido en OBS).
+- Si adjuntas otro archivo con el mismo nombre, reemplaza a la grafica anterior y se borra su archivo viejo de Storage.
+- "Quitar": quita la grafica del control y borra su archivo de Storage, salvo que otra configuracion (otra grafica, una transicion u
+  otro medio) lo este usando; en ese caso el archivo y el medio se conservan y el panel lo avisa.
+- Las graficas adjuntadas con la version anterior (archivo en media/) siguen funcionando; al quitarlas el archivo queda en media/ del repositorio.
+
+SI LA BARRA SE QUEDA EN 0 %
+- Storage no responde. A los ~40 s el panel muestra el motivo. Causas tipicas: Storage sin activar (Firebase Console > Storage > Comenzar),
+  reglas sin publicar, o un bloqueador de contenido/VPN que bloquea firebasestorage.googleapis.com. Safari: Desarrollo > Mostrar inspector web >
+  Red, filtra "firebasestorage" y mira el codigo de estado de la peticion.
+
+SI UNA GRAFICA NO SE REPRODUCE
+- La salida avisa el motivo: en la lista de MEDIOS aparece una linea amarilla. Pulsa "Probar" en la fila: dice si el archivo se carga
+  y si el navegador puede decodificarlo (codec, tamano 1920x1080).
+- Exportar el MP4 desde After Effects: Composicion > Anadir a la cola de Adobe Media Encoder. Formato H.264,
+  preajuste "Coincidir origen - Velocidad alta", 1920x1080, perfil High, 8 bits (4:2:0), audio AAC,
+  y activar "Optimizar para transmision". No sirven ProRes, HEVC/H.265 ni un .mov renombrado a .mp4.
+- Error "Firebase rechazo la operacion": las reglas de Storage no estan publicadas o no coinciden con firebase/storage.rules.
+- Error "Storage no esta activado": falta el paso 1 de CONFIGURAR FIREBASE.
+
+SEGURIDAD
+- El firebaseConfig del panel (apiKey, projectId, storageBucket, appId) es informacion publica de cliente, no un secreto. No hay claves
+  privadas ni de administracion en el codigo.
+- Como el sistema no usa Firebase Auth, Storage queda con el mismo criterio que la Realtime Database: no hay inicio de sesion. Las reglas
+  limitan ruta, tipo (video MP4/WebM, imagen PNG/WebP/JPG), tamano (100 MB) y prohiben sobrescribir. Lo que NO pueden hacer es verificar
+  el codigo de sala, porque Storage no puede leer la Realtime Database. Si quieres cerrar mas el acceso, el siguiente paso seria activar
+  Firebase Authentication anonima (o App Check) y exigir request.auth != null en las reglas.
+
+PARA VOLVER ATRAS: restaura panel.html, js/panel.js y css/panel.css desde el historial de GitHub.

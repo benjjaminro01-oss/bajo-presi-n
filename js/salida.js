@@ -39,6 +39,44 @@
     });
   };
 
+  // ---------- croma: quita el color de fondo (ej. verde #34FE00) con un filtro SVG (alfa por distancia al color + corrección de borde verde)
+  function chromaFiltro(id, ch) {
+    var fid = "bp-ck-" + String(id).replace(/[^A-Za-z0-9_-]/g, ""), hex, rgb, dom, D0, sim, suav, T, co, av, i, svg;
+    if (document.getElementById(fid)) { return fid; }
+    hex = String(ch.color || "#34FE00").replace("#", ""); rgb = [0, 2, 4].map(function (k) { return parseInt(hex.substr(k, 2), 16) / 255; });
+    dom = rgb[0] >= rgb[1] && rgb[0] >= rgb[2] ? 0 : (rgb[1] >= rgb[2] ? 1 : 2);                  // canal dominante del color de croma
+    D0 = rgb[dom] - (rgb[0] + rgb[1] + rgb[2] - rgb[dom]) / 2;
+    sim = ch.similitud == null ? 0.32 : +ch.similitud; suav = Math.max(0.02, ch.suavidad == null ? 0.08 : +ch.suavidad);
+    T = D0 * (1 - sim); co = [0.5 / suav, 0.5 / suav, 0.5 / suav]; co[dom] = -1 / suav;           // alfa = (T - (dominante - promedio de los otros)) / suavidad
+    av = [1, 0, 0, 0, 0,  0, 1, 0, 0, 0,  0, 0, 1, 0, 0,  0, 0, 0, 1, 0];
+    for (i = 0; i < 3; i++) { av[dom * 5 + i] = (i === dom) ? 0 : 0.5; }                           // límite = promedio de los otros dos + margen
+    av[dom * 5 + 4] = 0.14;                                                                         // el margen evita alterar colores de la paleta (ej. celeste #50C3FF)
+    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("width", "0"); svg.setAttribute("height", "0"); svg.style.cssText = "position:absolute;left:0;top:0";
+    svg.innerHTML = '<filter id="' + fid + '" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">' +
+      '<feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  ' + co[0] + " " + co[1] + " " + co[2] + " 0 " + (T / suav) + '" result="m"/>' +
+      '<feColorMatrix in="SourceGraphic" type="matrix" values="' + av.join(" ") + '" result="a"/>' +
+      '<feBlend in="SourceGraphic" in2="a" mode="darken" result="d"/><feComposite in="d" in2="m" operator="in"/></filter>';
+    document.body.appendChild(svg);
+    return fid;
+  }
+
+  // ---------- gráfica: imagen fija (PNG/WebP/JPG a pantalla completa 1920x1080; queda hasta que se oculte)
+  function Imagen(layer, datos) {
+    var m = (cfg.medios || {})[datos.medio] || {}, img = document.createElement("img");
+    img.className = "video-el"; img.src = m.img || "";
+    if (m.chroma) { img.style.filter = "url(#" + chromaFiltro(datos.medio, m.chroma) + ")"; }
+    img.addEventListener("error", function () { console.warn("imagen no disponible", datos.medio); if (img.parentNode) { img.parentNode.removeChild(img); } });
+    layer.appendChild(img); this.el = img;
+  }
+  Imagen.prototype.in = function () { this.el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: BP.dur(250), fill: "both" }); };
+  Imagen.prototype.out = function () {
+    var self = this;
+    return new Promise(function (res) {
+      var a = self.el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: BP.dur(250), fill: "both" });
+      a.onfinish = function () { if (self.el.parentNode) { self.el.parentNode.removeChild(self.el); } res(); };
+    });
+  };
+
   // ---------- gráfica: video (cortina, tótem...). Se reproduce una vez y se retira sola al terminar.
   function fuentesVideo(m) {
     var h = "";
@@ -50,6 +88,7 @@
     var m = (cfg.medios || {})[datos.medio] || {}, v = document.createElement("video"), self = this;
     v.className = "video-el"; v.playsInline = true; v.preload = "auto"; v.muted = canal === "preview" || P.silencio === "1" || !!(opts && opts.mudo);
     v.loop = !!datos.repetir; v.innerHTML = fuentesVideo(m);
+    if (m.chroma) { v.style.filter = "url(#" + chromaFiltro(datos.medio, m.chroma) + ")"; }
     layer.appendChild(v); this.el = v; this.onend = onend; this.corte = null;
     v.addEventListener("ended", function () { if (self.onend) { self.onend(); } });
     v.addEventListener("error", function () { console.warn("video no disponible", datos.medio); if (self.onend) { self.onend(); } }, true);
@@ -123,6 +162,7 @@
     if (g.tipo === "huincha") { return huVacia(g, datos) ? null : new Huincha(capas.huincha, datos); }
     if (g.tipo === "gc_persona") { var gc = new BP.GCPersona(capas.gc); gc.render(datos); return gc; }
     if (g.tipo === "logo") { return new Logo(capas.logo, datos); }
+    if (g.tipo === "imagen") { return new Imagen(capas.video, datos); }
     if (g.tipo === "video") {
       return new Video(capas.video, datos, function () {         // al terminar: se limpia la capa y el estado (solo en AIRE)
         var cur = actual[capa];

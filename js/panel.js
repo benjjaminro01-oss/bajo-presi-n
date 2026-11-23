@@ -20,12 +20,13 @@
       { k: "tab", t: "color", l: "Color de la pestaña" }, { k: "tabText", t: "color", l: "Color del texto de la pestaña" }, { k: "cap", t: "color", l: "Color del remate" }
     ],
     video: [{ k: "medio", t: "medio", l: "Video" }, { k: "repetir", t: "check", l: "Repetir en bucle" }],
+    imagen: [{ k: "medio", t: "medio", l: "Imagen" }],
     logo: [
       { k: "posicion", t: "sel", l: "Posición", op: { tr: "Arriba derecha", tl: "Arriba izquierda", br: "Abajo derecha", bl: "Abajo izquierda" } },
       { k: "ancho", t: "num", l: "Ancho (px)", min: 80, max: 500 }
     ]
   };
-  var RAPIDOS = { gc_persona: ["nombre", "tab"], video: ["medio"], logo: ["posicion"] };
+  var RAPIDOS = { gc_persona: ["nombre", "tab"], video: ["medio"], imagen: ["medio"], logo: ["posicion"] };
   function campoDef(tipo, k) { var a = CAMPOS[tipo] || [], i; for (i = 0; i < a.length; i++) { if (a[i].k === k) { return a[i]; } } return { k: k, t: "texto", l: k }; }
 
   // ---------- pendientes (PENDIENTE_...)
@@ -201,7 +202,7 @@
   }
   function textoBoton(g) {
     if (g.tipo === "gc_persona") { return g.datos.nombre; }
-    if (g.tipo === "video") { var m = medios()[g.datos.medio]; return m ? m.nombre : g.datos.medio; }
+    if (g.tipo === "video" || g.tipo === "imagen") { var m = medios()[g.datos.medio]; return m ? m.nombre : g.datos.medio; }
     if (g.tipo === "logo") { return "Esquina"; }
     return "";
   }
@@ -378,6 +379,115 @@
     s.textContent = txt; s.className = cls;
   }
 
+  // ---------- MEDIOS: adjuntar gráficas terminadas (video MP4/WebM o imagen PNG/WebP/JPG) y dejarlas como botones del control.
+  // Con token de GitHub (guardado solo en este equipo) el archivo se sube a la carpeta media/ del repositorio; sin token se registra
+  // y el archivo se sube a mano. El registro (config/medios + config/graficas + botonera) usa las estructuras que ya existen.
+  var mdBuilt = false, mdBusy = false, mdKey = "", MD_MAX = 60 * 1024 * 1024;
+  function ghCfg() {
+    var o = {}; try { o = JSON.parse(localStorage.getItem("bp:gh") || "{}"); } catch (e) { o = {}; }
+    return { token: o.token || "", repo: o.repo || "benjjaminro01-oss/bajo-presi-n", branch: o.branch || "main" };
+  }
+  function slug(s) { return String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "grafica"; }
+  function mdEstado(txt, cls) { var e = $("mdEst"); if (e) { e.textContent = txt; e.className = "state" + (cls ? " " + cls : ""); } }
+  function leerB64(file) {
+    return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(",")[1]); }; r.onerror = function () { rej(new Error("No se pudo leer el archivo")); }; r.readAsDataURL(file); });
+  }
+  function ghPut(path, b64, msg) {
+    var c = ghCfg(), url = "https://api.github.com/repos/" + c.repo + "/contents/" + path.split("/").map(encodeURIComponent).join("/"), h = { Authorization: "Bearer " + c.token, Accept: "application/vnd.github+json" };
+    return fetch(url + "?ref=" + encodeURIComponent(c.branch), { headers: h })
+      .then(function (r) { if (r.status === 200) { return r.json().then(function (j) { return j.sha; }); } if (r.status === 404) { return undefined; } throw new Error(r.status === 401 || r.status === 403 ? "GitHub rechazó el token (revisa permisos del repositorio)" : "GitHub respondió " + r.status); })
+      .then(function (sha) { var body = { message: msg, content: b64, branch: c.branch }; if (sha) { body.sha = sha; } return fetch(url, { method: "PUT", headers: h, body: JSON.stringify(body) }); })
+      .then(function (r) { if (!r.ok) { return r.json().then(function (j) { throw new Error((j && j.message) || ("GitHub respondió " + r.status)); }); } return r.json(); });
+  }
+  function esperarPublicado(path, intentos) {                    // GitHub Pages tarda 1-2 min en publicar el archivo nuevo
+    return fetch(path + "?v=" + Date.now(), { method: "HEAD", cache: "no-store" }).then(function (r) { return r.ok; }, function () { return false; })
+      .then(function (ok) { if (ok || intentos <= 0) { return ok; } return new Promise(function (res) { setTimeout(res, 8000); }).then(function () { return esperarPublicado(path, intentos - 1); }); });
+  }
+  function registrarMedio(o) {                                    // o: { id, nombre, tipo, archivo, croma, repetir }
+    var path = "media/" + o.archivo, m = { id: o.id, nombre: o.nombre }, g, slotsL = slots(), max = 0, hay = false;
+    if (o.tipo === "video") { m[/\.webm$/i.test(o.archivo) ? "webm" : "mp4"] = path; } else { m.img = path; }
+    if (o.croma) { m.chroma = { color: "#34FE00", similitud: 0.32, suavidad: 0.08 }; }
+    g = { id: o.id, nombre: o.nombre, tipo: o.tipo, capa: "video", orden: 100, tecla: "", boton: true, adjunta: true, archivo: o.archivo, datos: { medio: o.id, repetir: !!o.repetir }, entra: { tipo: "directo" }, sale: { tipo: "directo" } };
+    store.set("config/medios/" + o.id, m); store.set("config/graficas/" + o.id, g);
+    slotsL.forEach(function (s) { max = Math.max(max, s.orden || 0); if (s.gid === o.id) { hay = true; } });
+    if (!hay) { store.set("config/botonera/b" + Date.now().toString(36), { gid: o.id, orden: max + 1, tecla: "" }); }
+  }
+  function mdAdjuntar() {
+    if (!editable() || mdBusy) { return; }
+    var f = $("mdFile").files[0], ext, tipo, base, nombre, o, c = ghCfg();
+    if (!f) { aviso("Elige primero el archivo terminado."); return; }
+    ext = (f.name.split(".").pop() || "").toLowerCase();
+    tipo = ["mp4", "webm"].indexOf(ext) >= 0 ? "video" : (["png", "webp", "jpg", "jpeg"].indexOf(ext) >= 0 ? "imagen" : "");
+    if (!tipo) { aviso("Formato no compatible. Exporta a MP4 (H.264) o WebM; imágenes en PNG, WebP o JPG."); return; }
+    base = slug(f.name.replace(/\.[^.]+$/, "")); nombre = $("mdNom").value.trim() || f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
+    o = { id: "adj_" + base, nombre: nombre, tipo: tipo, archivo: base + "." + (ext === "jpeg" ? "jpg" : ext), croma: $("mdFondo").value === "verde", repetir: tipo === "video" && $("mdRep").checked };
+    if (!c.token) {
+      registrarMedio(o); mdEstado("Registrada «" + nombre + "». Falta subir el archivo «" + o.archivo + "» a la carpeta media/ del repositorio (o conecta GitHub para subirlo desde aquí).", "err"); return;
+    }
+    if (f.size > MD_MAX) { aviso("El archivo pesa más de 60 MB: no se puede subir desde el panel. Comprímelo o súbelo a mano a media/."); return; }
+    mdBusy = true; mdEstado("Subiendo «" + o.archivo + "» a GitHub… (" + Math.round(f.size / 1048576 * 10) / 10 + " MB)");
+    leerB64(f).then(function (b64) { return ghPut("media/" + o.archivo, b64, "Adjuntar gráfica: " + nombre); })
+      .then(function () { registrarMedio(o); mdEstado("Subido. Esperando que GitHub Pages lo publique (1–2 min)…"); return esperarPublicado("media/" + o.archivo, 45); })
+      .then(function (ok) { mdBusy = false; mdEstado(ok ? "✔ «" + nombre + "» lista: está en la Botonera." : "Subida correcta, pero aún no se publica. Espera un momento y pruébala.", ok ? "" : "err"); $("mdFile").value = ""; $("mdNom").value = ""; })
+      .catch(function (e) { mdBusy = false; mdEstado("⚠ " + e.message, "err"); });
+  }
+  function mdQuitar(gid) {
+    if (!editable()) { return; }
+    var g = G(gid); if (!g || !g.adjunta || !confirm("¿Quitar «" + g.nombre + "» del control? (el archivo queda en el repositorio)")) { return; }
+    if (alAire(gid)) { ocultar(gid); }
+    slots().forEach(function (s) { if (s.gid === gid) { store.remove("config/botonera/" + s.id); } });
+    store.remove("config/graficas/" + gid); store.remove("config/medios/" + gid);
+  }
+  function mdGithub() {
+    var c = ghCfg();
+    abrirSheet('<h3>Conexión con GitHub</h3><div class="hint">Permite subir archivos a la carpeta media/ desde este equipo. El token se guarda solo aquí (no se comparte con otros equipos). Usa un token «fine-grained» limitado a este repositorio con permiso <b>Contents: Read and write</b>.</div>' +
+      '<div class="f"><label>Token</label><input type="password" id="ghTok" autocomplete="off"></div><div class="f"><label>Repositorio (usuario/nombre)</label><input type="text" id="ghRepo"></div><div class="f"><label>Rama</label><input type="text" id="ghBr"></div>' +
+      '<div class="state" id="ghEst">' + (c.token ? "Token guardado en este equipo." : "Sin token: las gráficas se registran y el archivo se sube a mano.") + '</div>' +
+      '<div class="row"><button id="ghSave" style="background:#0d6b3a">Guardar y probar</button><button id="ghDel">Borrar token</button><button id="ghOk">Cerrar</button></div>',
+      function () {
+        $("ghTok").value = c.token; $("ghRepo").value = c.repo; $("ghBr").value = c.branch;
+        $("ghOk").onclick = cerrarSheet;
+        $("ghDel").onclick = function () { try { localStorage.removeItem("bp:gh"); } catch (e) {} $("ghTok").value = ""; $("ghEst").textContent = "Token borrado de este equipo."; };
+        $("ghSave").onclick = function () {
+          var o = { token: $("ghTok").value.trim(), repo: $("ghRepo").value.trim(), branch: $("ghBr").value.trim() || "main" };
+          try { localStorage.setItem("bp:gh", JSON.stringify(o)); } catch (e) {}
+          if (!o.token) { $("ghEst").textContent = "Guardado sin token."; return; }
+          $("ghEst").textContent = "Probando…";
+          fetch("https://api.github.com/repos/" + o.repo, { headers: { Authorization: "Bearer " + o.token, Accept: "application/vnd.github+json" } })
+            .then(function (r) { return r.json().then(function (j) { $("ghEst").textContent = r.ok ? (j.permissions && j.permissions.push === false ? "⚠ El token puede leer pero NO escribir en " + o.repo : "✔ Conectado a " + o.repo) : "⚠ " + (j.message || r.status); }); })
+            .catch(function () { $("ghEst").textContent = "⚠ Sin conexión con GitHub."; });
+        };
+      });
+  }
+  function construirMedios() {
+    var ref = $("huincha") || $("top"); if (!ref || mdBuilt) { return; }
+    var c = document.createElement("section"); c.id = "medios";
+    c.innerHTML = '<details><summary><b>MEDIOS — ADJUNTAR GRÁFICAS</b><span class="hint"> video MP4/WebM o imagen PNG/WebP/JPG</span></summary>' +
+      '<div class="f"><label>Archivo terminado</label><input type="file" id="mdFile" accept=".mp4,.webm,.png,.webp,.jpg,.jpeg"></div>' +
+      '<div class="f"><label>Nombre en el control</label><input type="text" id="mdNom" placeholder="Ej.: Tótem Spark Energy" autocomplete="off"></div>' +
+      '<div class="f"><label>Fondo del archivo</label><select id="mdFondo"><option value="">Normal (opaco o con transparencia propia)</option><option value="verde">Fondo verde croma #34FE00 → quitarlo</option></select></div>' +
+      '<label class="chk"><input type="checkbox" id="mdRep"> Repetir en bucle (solo video)</label>' +
+      '<div class="acc"><button class="b-show" id="mdAdd">ADJUNTAR</button><button id="mdGh">Conexión GitHub</button></div>' +
+      '<div class="state" id="mdEst">Elige un archivo y pulsa ADJUNTAR. Queda como botón en la Botonera.</div><div id="mdList"></div></details>';
+    ref.parentNode.insertBefore(c, ref.nextSibling);
+    $("mdAdd").addEventListener("click", mdAdjuntar); $("mdGh").addEventListener("click", mdGithub);
+    $("mdFile").addEventListener("change", function () { var f = this.files[0]; if (f && !$("mdNom").value) { $("mdNom").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "); } });
+    $("mdList").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-md]"); if (!b) { return; }
+      if (b.dataset.md === "alt") { if (editable()) { sel = b.dataset.g; alternar(b.dataset.g); } } else { mdQuitar(b.dataset.g); }
+    });
+    mdBuilt = true;
+  }
+  function pintarMedios() {
+    if (!mdBuilt) { construirMedios(); } if (!mdBuilt) { return; }
+    var ids = Object.keys(cfg().graficas || {}).filter(function (id) { return G(id) && G(id).adjunta; }), key = ids.map(function (id) { return id + (alAire(id) ? "*" : "") + G(id).nombre; }).join("|");
+    if (key === mdKey) { return; } mdKey = key;
+    $("mdList").innerHTML = ids.length ? '<div class="hint" style="margin:10px 0 4px">Gráficas adjuntas (también están en la Botonera):</div>' + ids.map(function (id) {
+      var g = G(id), on = alAire(id);
+      return '<div class="mdrow' + (on ? " on" : "") + '"><div><b>' + esc(g.nombre) + '</b><small>' + esc(g.tipo + " · media/" + (g.archivo || "")) + '</small></div><button data-md="alt" data-g="' + esc(id) + '">' + (on ? "OCULTAR" : "MOSTRAR") + '</button><button data-md="del" data-g="' + esc(id) + '">Quitar</button></div>';
+    }).join("") : "";
+  }
+
   // ---------- pintado general
   function pintar() { cancelAnimationFrame(raf); raf = requestAnimationFrame(pintarTodo); }
   function pintarTodo() {
@@ -385,7 +495,7 @@
     pill.className = "pill " + (estadoCon.ok ? "ok" : "bad");
     var np = todosPendientes().length, bp = $("bPend"); bp.hidden = !np; bp.textContent = "⚠ " + np + " pendiente" + (np === 1 ? "" : "s");
     if (vista !== "botonera") { pintarEscaleta(); pintarEditor(); } else { pintarBotonera(); }
-    pintarHuincha();
+    pintarHuincha(); pintarMedios();
   }
 
   store.onStatus(function (s) { estadoCon = s; pintar(); });
